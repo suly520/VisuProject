@@ -57,12 +57,12 @@ class GLWidget(QtOpenGL.QGLWidget):
             0), MotorSteuerung.GetPosition(1), MotorSteuerung.GetPosition(2))
         # Es gibt die Einheit Pulse und eine Einheit für die Visualisierung
         # mit ChangeUnit() werden die Pulse umgewandelt
-        self.actual_value_x, self.actual_value_y, self.actual_value_z = [self.ChangeUnit(
-            i, pose) for i, pose in enumerate(self.freq_pos_list, 0)]
-        self.start_x = self.start_y = self.start_z = 0
-        self.target_point_x = self.target_point_y = self.target_point_z = 0
-        self.overall_space_x = self.overall_space_y = self.overall_space_z = 0
-        self.space_x = self.space_y = self.space_z = 0
+        self.actual_visu_val_x, self.actual_visu_val_y, self.actual_visu_val_z = [
+            self.ChangeUnit(i, pose) for i, pose in enumerate(self.freq_pos_list, 0)]
+        self.visu_start_pos_x = self.visu_start_pos_y = self.visu_start_pos_z = 0
+        self.visu_target_point_x = self.visu_target_point_y = self.visu_target_point_z = 0
+        self.overall_distance_x = self.overall_distance_y = self.overall_distance_z = 0
+        self.distance_x = self.distance_y = self.distance_z = 0
         self.vmax = 0
 
         """Für die GUI"""
@@ -84,89 +84,88 @@ class GLWidget(QtOpenGL.QGLWidget):
         self.model_loc: OpenGL.GL.shaders.ShaderProgram
         self.proj_loc: OpenGL.GL.shaders.ShaderProgram
         self.view_m_loc: OpenGL.GL.shaders.ShaderProgram
-        self.visuPoslist: list
-        self.aimPoslist: list
+        self.visu_pos_vec: list
+        self.visu_traget_pos_vec: list
         self.slist: list
-        self.xMotorCheck: bool
-        self.yMotorCheck: bool
-        self.zMotorCheck: bool
-        self.checkList: tuple
-        self.rotationY: float
-        self.viewTransM: pyrr.Matrix44
-        self.zoomM: pyrr.Matrix44
-        self.moveToXM: np.ndarray
-        self.moveToYM: np.ndarray
-        self.moveToZM: np.ndarray
-        self.rotationXM: pyrr.Matrix44
-        self.posGen: list
+        self.motor_check_x: bool
+        self.motor_check_y: bool
+        self.motor_check_z: bool
+        self.motor_check_list: tuple
+        self.visu_rotation_y: float
+        self.view_translation_matrix: pyrr.Matrix44
+        self.zoom_matrix: pyrr.Matrix44
+        self.target_matrix_x: np.ndarray
+        self.target_matrix_y: np.ndarray
+        self.target_matrix_z: np.ndarray
+        self.rotation_matrix_x: pyrr.Matrix44
+        self.generated_pos_vec: list
 
         """Für definierte Funktionen der Steuerung"""
-        # Die zwei Hauptfunktionen sind Kalibrieren und Konturing außerdem gibt es noch die MöGL.glichkeit onlyVisual
-        self.kalibration = False
-        self.kontur = False
-        # Wird dann Aktiv wenn kontur oder kali ausgewählt wurden und zyklStart True ist (zyklStart muss ausgeschaltet werden)
-        self.autoStart = False
+        # Die zwei Hauptfunktionen sind Kalibrieren und Konturing außerdem gibt
+        # es noch die MöGL.glichkeit onlyVisual
+        self.calibration_active = False
+        self.contouring_active = False
+        # Wird dann Aktiv wenn kontur oder kali ausgewählt wurden und zyklStart
+        # True ist (zyklStart muss ausgeschaltet werden)
+        self.auto_start = False
         # Dient als Indikator das der der nächste Schritt ausgewählt werden kann
-        self.nextStep = True
-        self.step = 0  # step ist der Momentane Schritt der Kontur oder der Kalibration
+        self.next_step_ready = True
+        self.current_step = 0  # step ist der Momentane Schritt der Kontur oder der Kalibration
         # wird benötigt um den momentanen Schritt der Kontur oder Kalibration festustellen
-        self.oldstep = 0
+        self.old_step = 0
         # Ist ein Platzhalter für einen Pfad zum Konturfile !!! Konturfiles müssen angefertigt
-        self.konturFile = None
+        self.contouring_file = None
         # werden und müssen definierte Maße nicht überschreitten !!!
         # Diese Variable ist für die Funktion die MotorSteureung wegzuschalten
-        self.onlyVis = False
+        self.visu_only_activ = False
 
         """Alle 3D-Objekte, Matritzen, Files Für die 3D_Visualisierung"""
         # Matrizen Für die Ansicht der Objekte
-        self.projectionM = pyrr.matrix44.create_perspective_projection_matrix(
+        self.projection_matrix = pyrr.matrix44.create_perspective_projection_matrix(
             45, 1280 / 720, 0.1, 100)
-        self.viewM = pyrr.matrix44.create_look_at(pyrr.Vector3(
+        self.view_matrix = pyrr.matrix44.create_look_at(pyrr.Vector3(
             [0, 0, 25]), pyrr.Vector3([0, 0, 0]), pyrr.Vector3([0, 1, 0]))
         # diese variablen sind für das Drehen bzw Scalieren der Ansicht um die 3D Objecte
-        self.rotationX = self.rotationYM = 0
+        self.visu_rotation_x = self.rotation_matrix_y = 0
         self.zoom = 1
-        self.oldRotpos = list()
-        self.oldTranspos = list()
+        self.old_rotation_vec = list()
+        self.old_translation_vec = list()
         # Matritzen für das Positionieren und Bewegen der Objekte
-        self.xachsePosM = self.yachsePosM = self.zachsePosM = pyrr.matrix44.create_from_translation(
+        self.axis_matrix_x = self.axis_matrix_y = self.axis_matrix_z = pyrr.matrix44.create_from_translation(
             pyrr.Vector3([0, -3, 0]))  # y-5
-        self.moveList = [self.xachsePosM, self.xachsePosM, self.xachsePosM]
-        self.transxM = pyrr.Matrix44.from_translation(
-            [0, 0, self.actual_value_x])
-        self.transyM = pyrr.Matrix44.from_translation(
-            [self.actual_value_y, 0, 0])
-        self.transzM = pyrr.Matrix44.from_translation(
-            [0, -self.actual_value_z, 0])
+        self.translation_list = [self.axis_matrix_x,
+                                 self.axis_matrix_x, self.axis_matrix_x]
+        self.translation_matrix_x = pyrr.Matrix44.from_translation(
+            [0, 0, self.actual_visu_val_x])
+        self.translation_matrix_y = pyrr.Matrix44.from_translation(
+            [self.actual_visu_val_y, 0, 0])
+        self.translation_matrix_z = pyrr.Matrix44.from_translation(
+            [0, -self.actual_visu_val_z, 0])
         # Textur- und Objfilepfade
-        self.texturFiles = "./TexturFiles/STEP.jpg"
-        self.objFiles = [
+        self.texture_files = "./TexturFiles/STEP.jpg"
+        self.obj_files = [
             "./ObjFiles/X.obj",
             "./ObjFiles/Y.obj",
             "./ObjFiles/Z.obj",
         ]
         # Ladend der Informationen für das Shaderprogramm
-        objList = self.LoadObjList()
-        self.indecisList = objList[0]
-        self.bufferList = objList[1]
+        loaded_objects = self.LoadObjList()
+        self.obj_indices = loaded_objects[0]
+        self.obj_buffers = loaded_objects[1]
         # Timer führt die gewählte Funktion(self.Ablauf) aus ist für die Event-loop verantwortlich.
         timer = QtCore.QTimer(self)
         timer.timeout.connect(self.Ablauf)
         timer.start()
-
-    @staticmethod
-    def d(*args, **kwargs):
-        print(*args, file=sys.stderr, **kwargs)
 
 # OpenGL Grundfunktionen für PySide2 / init, draw, resize /
     def initializeGL(self):
         """Hier wird alles (Vertecies, Buffer und WidgetDisplay) für das Zeichnen initialisiert(vorbereitet)"""
         OpenGL.GL.glEnable(OpenGL.GL.GL_DEPTH_TEST)
         textures = OpenGL.GL.glGenTextures(1)
-        self.LoadTexture(self.texturFiles, textures)
-        VAO_VBOlist = self.CreateVAOandVBO(self.bufferList)
-        self.vert_buf_obj = VAO_VBOlist[0]
-        self.vert_arr_obj = VAO_VBOlist[1]
+        self.LoadTexture(self.texture_files, textures)
+        obj_properties = self.create_obj_properties(self.obj_buffers)
+        self.vert_buf_obj = obj_properties[0]
+        self.vert_arr_obj = obj_properties[1]
         OpenGL.GL.glClearColor(0, 1, 2, 1)
 
     def paintGL(self):
@@ -174,12 +173,12 @@ class GLWidget(QtOpenGL.QGLWidget):
         OpenGL.GL.glClear(OpenGL.GL.GL_COLOR_BUFFER_BIT |
                           OpenGL.GL.GL_DEPTH_BUFFER_BIT)
         self.SetTrans()  # mit  SetTrans wird die Matrix Translation neu gezeichnet
-        for i in range(len(self.indecisList)):
+        for i, _ in enumerate(self.obj_indices, 0):
             OpenGL.GL.glBindVertexArray(self.vert_arr_obj[i])
             OpenGL.GL.glUniformMatrix4fv(
-                self.model_loc, 1, OpenGL.GL.GL_FALSE, self.moveList[i])
+                self.model_loc, 1, OpenGL.GL.GL_FALSE, self.translation_list[i])
             OpenGL.GL.glDrawArrays(
-                OpenGL.GL.GL_TRIANGLES, 0, len(self.indecisList[i]))
+                OpenGL.GL.GL_TRIANGLES, 0, len(self.obj_indices[i]))
 
     def resizeGL(self, width, height):
         """Hier wird die Einstellung des Viewports (Modelansicht) an die Größe des Fensters angepasst"""
@@ -189,14 +188,14 @@ class GLWidget(QtOpenGL.QGLWidget):
         self.proj_loc = OpenGL.GL.glGetUniformLocation(shader, "projection")
         self.view_m_loc = OpenGL.GL.glGetUniformLocation(shader, "view")
         OpenGL.GL.glUniformMatrix4fv(
-            self.proj_loc, 1, OpenGL.GL.GL_FALSE, self.projectionM)
+            self.proj_loc, 1, OpenGL.GL.GL_FALSE, self.projection_matrix)
         OpenGL.GL.glUniformMatrix4fv(
-            self.view_m_loc, 1, OpenGL.GL.GL_FALSE, self.viewM)
+            self.view_m_loc, 1, OpenGL.GL.GL_FALSE, self.view_matrix)
 
     @staticmethod
     def CreateShader():
         """Hier werden die Shaderprogramme erstellt und an die GPU als Schnittstelle gesendet"""
-        vertexSrc = """
+        vertex_src = """
         # version 300 es
 
         layout(location = 0) in vec3 a_position;
@@ -215,7 +214,7 @@ class GLWidget(QtOpenGL.QGLWidget):
         }
         """
 
-        fragmentSrc = """
+        fragment_src = """
         # version 300 es
     
         precision mediump float;
@@ -232,29 +231,32 @@ class GLWidget(QtOpenGL.QGLWidget):
         }
         """
         # compileProgramm compeliert die Shaderprogramme für die GPU
-        shader = compileProgram(compileShader(vertexSrc, OpenGL.GL.GL_VERTEX_SHADER), compileShader(
-            fragmentSrc, OpenGL.GL.GL_FRAGMENT_SHADER))
-        # mit OpenGL.GL.glUseProgramm werden die Shaderprogramme ausgewählt und dienen als Schnittstelle für die GPU
+        shader = compileProgram(compileShader(vertex_src, OpenGL.GL.GL_VERTEX_SHADER), 
+                                compileShader(fragment_src, OpenGL.GL.GL_FRAGMENT_SHADER))
+        # mit OpenGL.GL.glUseProgramm werden die Shaderprogramme 
+        # ausgewählt und dienen als Schnittstelle für die GPU
         OpenGL.GL.glUseProgram(shader)
         return shader
 
     @staticmethod
-    def CreateVAOandVBO(bufferlist):
+    def create_obj_properties(bufferlist):
         """Hier werden die Vertex Array- und Vertex Buffer Objekte erstellt"""
-        VAO = OpenGL.GL.glGenVertexArrays(len(
-            bufferlist))  # enthält die Informationen zu den Vertexdaten aus den VBO's (Datenformat, welches VBO , ...)
+        vertex_array_object = OpenGL.GL.glGenVertexArrays(len(
+            bufferlist))    # enthält die Informationen zu den Vertexdaten aus den
+                            # vertex_buffer_object's
+                            # (Datenformat, welches vertex_buffer_object , ...)
         # es enthält die eigendlichen Vertexdaten der Objekte
-        VBO = OpenGL.GL.glGenBuffers(len(bufferlist))
+        vertex_buffer_object = OpenGL.GL.glGenBuffers(len(bufferlist))
 
         for i, buffer in enumerate(bufferlist, 0):
             if len(bufferlist) == 1:
                 i = 0
-            # das VAO wird an den index i gebunden
-            OpenGL.GL.glBindVertexArray(VAO[i])
+            # das vertex_array_object wird an den index i gebunden
+            OpenGL.GL.glBindVertexArray(vertex_array_object[i])
 
-            # das VBO wird an den index i gebunden
-            OpenGL.GL.glBindBuffer(OpenGL.GL.GL_ARRAY_BUFFER, VBO[i])
-            # die Vertexdaten werden im VBO deklariert
+            # das vertex_buffer_object wird an den index i gebunden
+            OpenGL.GL.glBindBuffer(OpenGL.GL.GL_ARRAY_BUFFER, vertex_buffer_object[i])
+            # die Vertexdaten werden im vertex_buffer_object deklariert
             OpenGL.GL.glBufferData(
                 OpenGL.GL.GL_ARRAY_BUFFER, buffer.nbytes, buffer, OpenGL.GL.GL_STATIC_DRAW)
 
@@ -272,19 +274,19 @@ class GLWidget(QtOpenGL.QGLWidget):
             OpenGL.GL.glVertexAttribPointer(
                 2, 4, OpenGL.GL.GL_FLOAT, OpenGL.GL.GL_FALSE, buffer.itemsize * 8, ctypes.c_void_p(20))
 
-        return VAO, VBO
+        return vertex_array_object, vertex_buffer_object
 
     def LoadObjList(self):
         """Hier werden die Objecte für die 3D-Visulation geladen und eine indeciesliste und Bufferliste erstellt"""
-        indecisList = []
-        bufferList = []
-        for objFile in self.objFiles:
+        obj_indices = []
+        obj_buffers = []
+        for objFile in self.obj_files:
             if len(objFile) == 1:
-                indecies, buffers = ObjLoader.LoadModel(self.objFiles)
+                indecies, buffers = ObjLoader.LoadModel(self.obj_files)
             indecies, buffers = ObjLoader.LoadModel(objFile)
-            indecisList.append(indecies)
-            bufferList.append(buffers)
-        return indecisList, bufferList
+            obj_indices.append(indecies)
+            obj_buffers.append(buffers)
+        return obj_indices, obj_buffers
 
     @staticmethod
     def LoadTexture(path, texture):
@@ -323,80 +325,80 @@ class GLWidget(QtOpenGL.QGLWidget):
         """Hier werden die Position gesetzt welche die Maschine anfahren und visualisiert werden soll"""
 
         # Diese Bedingung ist für das setzten der Kalibrations- bzw. Konturposition
-        if not self.zykl_stop and not self.is_set and (self.kalibration or self.kontur):
+        if not self.zykl_stop and not self.is_set and (self.calibration_active or self.contouring_active):
             self.SetAutoPos()
-            # ist step größer oldstep ist der Schritt gesetzt worden und kann automatisch gestartet werden
-            if self.step > self.oldstep and self.autoStart:
-                self.oldstep = self.step
-                if self.kalibration and self.step > 0 or self.kontur and self.step > 1:
+            # ist step größer old_step ist der Schritt gesetzt worden und kann automatisch gestartet werden
+            if self.current_step > self.old_step and self.auto_start:
+                self.old_step = self.current_step
+                if self.calibration_active and self.current_step > 0 or self.contouring_active and self.current_step > 1:
                     self.ZyklusStart()
 
         # der Weg wird für die Berechnung der Geschwindigkeit benötigt und auf Grund des Vorzeichens für der Motordrehrichtung gebraucht
-        self.space_x = self.target_point_x - self.actual_value_x
-        self.space_y = self.target_point_y - self.actual_value_y
-        self.space_z = self.target_point_z - self.actual_value_z
+        self.distance_x = self.visu_target_point_x - self.actual_visu_val_x
+        self.distance_y = self.visu_target_point_y - self.actual_visu_val_y
+        self.distance_z = self.visu_target_point_z - self.actual_visu_val_z
 
-        self.visuPoslist = [self.actual_value_x,
-                            self.actual_value_y, self.actual_value_z]
-        self.aimPoslist = [self.target_point_x,
-                           self.target_point_y, self.target_point_z]
-        self.slist = [self.space_x, self.space_y, self.space_z]
+        self.visu_pos_vec = [self.actual_visu_val_x,
+                             self.actual_visu_val_y, self.actual_visu_val_z]
+        self.visu_traget_pos_vec = [self.visu_target_point_x,
+                                    self.visu_target_point_y, self.visu_target_point_z]
+        self.slist = [self.distance_x, self.distance_y, self.distance_z]
 
         # gibt die Geschwindigkeit und ob der moter eingeschaltet werden soll zurück
-        motorSettings = vNeu(self.space_x, self.space_y,
-                             self.space_z, self.vmax)
+        motorSettings = vNeu(self.distance_x, self.distance_y,
+                             self.distance_z, self.vmax)
 
         if self.zykl_start and not self.zykl_stop:
-            if not self.onlyVis:
+            if not self.visu_only_activ:
                 # die aktuelle Position des Motors
                 self.freq_pos_list = self.motor_steering.GetMotorPosition()
-                for i, pose in enumerate(self.visuPoslist):
+                for i, pose in enumerate(self.visu_pos_vec):
                     # Drehrichtungsbestimmung
                     self.Stepper(
-                        i, pose, self.aimPoslist[i], self.slist[i], motorSettings[i])
+                        i, pose, self.visu_traget_pos_vec[i], self.slist[i], motorSettings[i])
 
-                self.actual_value_x, self.actual_value_y, self.actual_value_z = [self.ChangeUnit(i, poses) for i, poses in enumerate(
+                self.actual_visu_val_x, self.actual_visu_val_y, self.actual_visu_val_z = [self.ChangeUnit(i, poses) for i, poses in enumerate(
                     self.freq_pos_list, 0)]  # position für die Visualisierung
 
             else:
-                self.actual_value_x, self.actual_value_y, self.actual_value_z = [self.Stepper(
-                    i, pose, self.aimPoslist[i], self.slist[i], motorSettings[i]) for i, pose in enumerate(self.visuPoslist, 0)]
+                self.actual_visu_val_x, self.actual_visu_val_y, self.actual_visu_val_z = [self.Stepper(
+                    i, pose, self.visu_traget_pos_vec[i], self.slist[i], motorSettings[i]) for i, pose in enumerate(self.visu_pos_vec, 0)]
                 # um die aktuelle Motorposition zu simulieren muss der Visu wert in Pulse umgewandelt werden
                 self.freq_pos_list = [int(self.ChangeUnit(i, poses, toPuls=True))
-                                      for i, poses in enumerate(self.visuPoslist, 0)]
+                                      for i, poses in enumerate(self.visu_pos_vec, 0)]
 
             if not self.is_set:  # um die MotorSteuerung nicht ständig aus und einzuschalten und gewisse Variablen zu setzen die nur einmal betätigt werden sollen
-                if not self.kontur:
+                if not self.contouring_active:
                     print('..:: Start ::..')
                 self.is_set = True
-                self.start_x = self.actual_value_x
-                self.start_y = self.actual_value_y
-                self.start_z = self.actual_value_z
+                self.visu_start_pos_x = self.actual_visu_val_x
+                self.visu_start_pos_y = self.actual_visu_val_y
+                self.visu_start_pos_z = self.actual_visu_val_z
                 # wird benötigt für das Kalkulieren der Prozesslänge für den Progressbar
-                self.overall_space_x = self.space_x
-                self.overall_space_y = self.space_y
-                self.overall_space_z = self.space_z
-                if not self.onlyVis:
+                self.overall_distance_x = self.distance_x
+                self.overall_distance_y = self.distance_y
+                self.overall_distance_z = self.distance_z
+                if not self.visu_only_activ:
                     self.motor_steering.Start(self.direction_vec, self.v_vec, self.freq_vec,
                                               self.max_freq_vec, self.min_freq_vec, motorSettings[3:6])
 
-            if not self.onlyVis:
-                self.xMotorCheck, self.yMotorCheck, self.zMotorCheck = self.motor_steering.GetMotorStatus()
-                self.checkList = (self.xMotorCheck, self.yMotorCheck,
-                                  self.zMotorCheck, self.zykl_start)
+            if not self.visu_only_activ:
+                self.motor_check_x, self.motor_check_y, self.motor_check_z = self.motor_steering.GetMotorStatus()
+                self.motor_check_list = (self.motor_check_x, self.motor_check_y,
+                                         self.motor_check_z, self.zykl_start)
             else:
                 self.visu_check_vec = (
                     self.visu_check_x, self.visu_check_y, self.visu_check_z)
 
-            if all(self.checkList) or (self.onlyVis and all(self.visu_check_vec)):
+            if all(self.motor_check_list) or (self.visu_only_activ and all(self.visu_check_vec)):
                 self.zykl_start = False
                 self.is_set = False
                 self.visu_check_x = False
                 self.visu_check_y = False
                 self.visu_check_z = False
-                if self.kalibration or self.kontur:
-                    self.step += 1
-                    self.nextStep = True
+                if self.calibration_active or self.contouring_active:
+                    self.current_step += 1
+                    self.next_step_ready = True
             self.UpdateStausMainWindow()
 
     def SetAutoPos(self):
@@ -412,26 +414,27 @@ class GLWidget(QtOpenGL.QGLWidget):
             [0, 0, 1.7], [0, 0, 0], "ENDE"
         ]
 
-        if self.nextStep:
-            if self.kalibration:
-                if schrittliste[self.step] == [self.actual_value_x, self.actual_value_y, self.actual_value_z]:
-                    self.step += 1
+        if self.next_step_ready:
+            if self.calibration_active:
+                if schrittliste[self.current_step] == [self.actual_visu_val_x, self.actual_visu_val_y, self.actual_visu_val_z]:
+                    self.current_step += 1
 
-                if not schrittliste[self.step] == "ENDE":
-                    Schritte = schrittliste[self.step]
-                    print("SchrittNR.", self.step, schrittliste[self.step])
+                if not schrittliste[self.current_step] == "ENDE":
+                    Schritte = schrittliste[self.current_step]
+                    print("SchrittNR.", self.current_step,
+                          schrittliste[self.current_step])
                 else:
                     self.KalibrationSwitch()
                     self.UpdateStausMainWindow()
                     self.updateProgress.emit(100)
                     print("Kallibrierung abgeschlossen")
 
-            elif self.kontur:
-                self.step += 1
+            elif self.contouring_active:
+                self.current_step += 1
                 posFail = None
 
                 try:
-                    Schritte = next(self.posGen)
+                    Schritte = next(self.generated_pos_vec)
                     for i, j in enumerate(Schritte, 0):
                         if i == 2 and float(j) > 0 and float(j) < 1.75:
                             Schritte[i] = float(j)
@@ -450,8 +453,8 @@ class GLWidget(QtOpenGL.QGLWidget):
                         print(
                             f"..::ERROR::.. Konturvorgabe out of range! Kunturpos: {posFail} ")
 
-            if (self.kalibration or self.kontur):
-                self.nextStep = False
+            if (self.calibration_active or self.contouring_active):
+                self.next_step_ready = False
                 pulsMovePoses = [self.ChangeUnit(
                     i, pos, toPuls=True) for i, pos in enumerate(Schritte, 0)]
                 self.MoveX(pulsMovePoses[0])
@@ -470,50 +473,50 @@ class GLWidget(QtOpenGL.QGLWidget):
 
             if weg > 0 and ist >= soll or weg < 0 and ist <= soll or weg == 0:
                 ist = soll
-                if self.onlyVis:
+                if self.visu_only_activ:
                     if achse == 0:
                         self.visu_check_x = True
                     elif achse == 1:
                         self.visu_check_y = True
                     elif achse == 2:
                         self.visu_check_z = True
-            if self.onlyVis:
+            if self.visu_only_activ:
                 return ist
 
     def UpdateStausMainWindow(self):
-        if not self.kalibration or self.kontur:
+        if not self.calibration_active or self.contouring_active:
             self.CollData4Probar()
         else:
-            self.updateProgress.emit(int(ceil(self.step*3.703703704)))
+            self.updateProgress.emit(int(ceil(self.current_step*3.703703704)))
 
         self.updateLCD.emit(self.freq_pos_list)
-        self.updateMotorStatus.emit(self.checkList)
+        self.updateMotorStatus.emit(self.motor_check_list)
         self.updateStartStop.emit([self.zykl_start, self.zykl_stop])
 
     def CollData4Probar(self):
-        if self.overall_space_x != 0 and self.space_x != 0:
-            self.progress_x = abs(self.space_x * 100 /
-                                  abs(self.overall_space_x))
+        if self.overall_distance_x != 0 and self.distance_x != 0:
+            self.progress_x = abs(self.distance_x * 100 /
+                                  abs(self.overall_distance_x))
             self.updateProgress.emit(int(ceil(100 - self.progress_x)))
-        elif self.overall_space_x != 0 and self.space_x == 0:
-            self.progress_x = abs(self.space_x * 100 /
-                                  abs(self.overall_space_x))
+        elif self.overall_distance_x != 0 and self.distance_x == 0:
+            self.progress_x = abs(self.distance_x * 100 /
+                                  abs(self.overall_distance_x))
             self.updateProgress.emit(int(ceil(self.progress_x)))
-        elif self.overall_space_y != 0 and self.space_y != 0:
-            self.progress_y = abs(self.space_y * 100 /
-                                  abs(self.overall_space_y))
+        elif self.overall_distance_y != 0 and self.distance_y != 0:
+            self.progress_y = abs(self.distance_y * 100 /
+                                  abs(self.overall_distance_y))
             self.updateProgress.emit(int(ceil(100 - self.progress_y)))
-        elif self.overall_space_y != 0 and self.space_y == 0:
-            self.progress_y = abs(self.space_y * 100 /
-                                  abs(self.overall_space_y))
+        elif self.overall_distance_y != 0 and self.distance_y == 0:
+            self.progress_y = abs(self.distance_y * 100 /
+                                  abs(self.overall_distance_y))
             self.updateProgress.emit(int(ceil(self.progress_y)))
-        elif self.overall_space_z != 0 and self.space_z != 0:
-            self.progress_z = abs(self.space_z * 100 /
-                                  abs(self.overall_space_z))
+        elif self.overall_distance_z != 0 and self.distance_z != 0:
+            self.progress_z = abs(self.distance_z * 100 /
+                                  abs(self.overall_distance_z))
             self.updateProgress.emit(int(ceil(100 - self.progress_z)))
-        elif self.overall_space_z != 0 and self.space_z == 0:
-            self.progress_z = abs(self.actual_value_z *
-                                  100 / abs(self.overall_space_z))
+        elif self.overall_distance_z != 0 and self.distance_z == 0:
+            self.progress_z = abs(self.actual_visu_val_z *
+                                  100 / abs(self.overall_distance_z))
             self.updateProgress.emit(int(ceil(self.progress_z)))
 
     def mouseMoveEvent(self, event: QtGui.QMouseEvent):
@@ -521,9 +524,9 @@ class GLWidget(QtOpenGL.QGLWidget):
         posY = 0
         oldPosList = []
         if self.middle_button or self.right_button:
-            oldPosList = self.oldTranspos
+            oldPosList = self.old_translation_vec
         elif self.left_button:
-            oldPosList = self.oldRotpos
+            oldPosList = self.old_rotation_vec
         if len(oldPosList):
             xold = oldPosList[0]
             yold = oldPosList[1]
@@ -545,26 +548,27 @@ class GLWidget(QtOpenGL.QGLWidget):
         oldPosList = [newPosX, newPosY]
 
         if self.left_button:
-            self.oldRotpos = oldPosList
-            self.rotationX = posY/150
-            self.rotationY = posX/60
+            self.old_rotation_vec = oldPosList
+            self.visu_rotation_x = posY/150
+            self.visu_rotation_y = posX/60
             self.SetViewRotation()
 
         elif self.middle_button or self.right_button:
-            self.oldTranspos = oldPosList
+            self.old_translation_vec = oldPosList
             transX = -posX * 0.1
             transY = posY * 0.1
             if not self.right_button:
-                self.viewTransM = pyrr.Matrix44.from_translation(
+                self.view_translation_matrix = pyrr.Matrix44.from_translation(
                     [transX, transY, 0])
             else:
                 if abs(transX) > abs(transY):
-                    self.viewTransM = pyrr.Matrix44.from_translation(
+                    self.view_translation_matrix = pyrr.Matrix44.from_translation(
                         [0, 0, transX])
                 else:
-                    self.viewTransM = pyrr.Matrix44.from_translation(
+                    self.view_translation_matrix = pyrr.Matrix44.from_translation(
                         [0, 0, transY])
-            self.viewM = pyrr.matrix44.multiply(self.viewTransM, self.viewM)
+            self.view_matrix = pyrr.matrix44.multiply(
+                self.view_translation_matrix, self.view_matrix)
             self.resizeGL(self.width(), self.height())
         return super().mouseMoveEvent(event)
 
@@ -596,9 +600,10 @@ class GLWidget(QtOpenGL.QGLWidget):
             else:
                 self.double_click_count = -1
             print(self.double_click_count)
-            self.viewTransM = pyrr.Matrix44.from_translation(
+            self.view_translation_matrix = pyrr.Matrix44.from_translation(
                 [0, 0, self.trans_view_z])
-            self.viewM = pyrr.matrix44.multiply(self.viewTransM, self.viewM)
+            self.view_matrix = pyrr.matrix44.multiply(
+                self.view_translation_matrix, self.view_matrix)
             self.double_click_count += 1
             self.resizeGL(self.width(), self.height())
         return super().mouseDoubleClickEvent(event)
@@ -612,36 +617,45 @@ class GLWidget(QtOpenGL.QGLWidget):
         else:
             self.zoom = 1.1
 
-        self.zoomM = pyrr.Matrix44.from_scale(
+        self.zoom_matrix = pyrr.Matrix44.from_scale(
             [self.zoom, self.zoom, self.zoom])
-        self.viewM = pyrr.matrix44.multiply(self.zoomM, self.viewM)
+        self.view_matrix = pyrr.matrix44.multiply(
+            self.zoom_matrix, self.view_matrix)
         self.resizeGL(self.width(), self.height())
         return super().wheelEvent(event)
 
     def SetTrans(self):
-        self.transxM = pyrr.Matrix44.from_translation(
-            [0, 0, self.actual_value_x])
-        self.transyM = pyrr.Matrix44.from_translation(
-            [self.actual_value_y, 0, 0])
-        self.transzM = pyrr.Matrix44.from_translation(
-            [0, -self.actual_value_z, 0])
+        self.translation_matrix_x = pyrr.Matrix44.from_translation(
+            [0, 0, self.actual_visu_val_x])
+        self.translation_matrix_y = pyrr.Matrix44.from_translation(
+            [self.actual_visu_val_y, 0, 0])
+        self.translation_matrix_z = pyrr.Matrix44.from_translation(
+            [0, -self.actual_visu_val_z, 0])
 
-        self.moveToXM = self.xachsePosM
-        self.moveToYM = pyrr.matrix44.multiply(self.transxM, self.yachsePosM)
-        self.moveToZM = pyrr.matrix44.multiply(self.transxM, self.zachsePosM)
-        self.moveToZM = pyrr.matrix44.multiply(self.transyM, self.moveToZM)
-        self.moveToZM = pyrr.matrix44.multiply(self.transzM, self.moveToZM)
+        self.target_matrix_x = self.axis_matrix_x
+        self.target_matrix_y = pyrr.matrix44.multiply(
+            self.translation_matrix_x, self.axis_matrix_y)
+        self.target_matrix_z = pyrr.matrix44.multiply(
+            self.translation_matrix_x, self.axis_matrix_z)
+        self.target_matrix_z = pyrr.matrix44.multiply(
+            self.translation_matrix_y, self.target_matrix_z)
+        self.target_matrix_z = pyrr.matrix44.multiply(
+            self.translation_matrix_z, self.target_matrix_z)
 
-        self.moveList[0] = self.moveToXM
-        self.moveList[1] = self.moveToYM
-        self.moveList[2] = self.moveToZM
+        self.translation_list[0] = self.target_matrix_x
+        self.translation_list[1] = self.target_matrix_y
+        self.translation_list[2] = self.target_matrix_z
 
     def SetViewRotation(self):
-        self.rotationYM = pyrr.Matrix44.from_y_rotation(self.rotationY)
-        self.rotationXM = pyrr.Matrix44.from_x_rotation(self.rotationX)
+        self.rotation_matrix_y = pyrr.Matrix44.from_y_rotation(
+            self.visu_rotation_y)
+        self.rotation_matrix_x = pyrr.Matrix44.from_x_rotation(
+            self.visu_rotation_x)
 
-        self.viewM = pyrr.matrix44.multiply(self.rotationYM, self.viewM)
-        self.viewM = pyrr.matrix44.multiply(self.rotationXM, self.viewM)
+        self.view_matrix = pyrr.matrix44.multiply(
+            self.rotation_matrix_y, self.view_matrix)
+        self.view_matrix = pyrr.matrix44.multiply(
+            self.rotation_matrix_x, self.view_matrix)
         self.resizeGL(self.width(), self.height())
 
     def Ablauf(self):
@@ -652,11 +666,11 @@ class GLWidget(QtOpenGL.QGLWidget):
     def ResetToStart(self):
         self.zykl_start = False
         self.motor_steering.HardStopping()
-        self.checkList = [True, True, True, self.zykl_start]
-        self.step = 0
-        self.oldstep = 0
-        self.nextStep = True
-        self.actual_value_x, self.actual_value_y, self.actual_value_z = [self.ChangeUnit(
+        self.motor_check_list = [True, True, True, self.zykl_start]
+        self.current_step = 0
+        self.old_step = 0
+        self.next_step_ready = True
+        self.actual_visu_val_x, self.actual_visu_val_y, self.actual_visu_val_z = [self.ChangeUnit(
             i, pose) for i, pose in enumerate(self.freq_pos_list, 0)]
         self.updateStatus.emit('NOP')
         self.updateSpinnerVal.emit()  # Setzt die SpinerBox Werte auf die aktuelle Position
@@ -673,37 +687,37 @@ class GLWidget(QtOpenGL.QGLWidget):
     @QtCore.Slot(int)
     def MoveX(self, ziel):
         xIst = MotorSteuerung.GetPosition(0)
-        # self.ChangeUnit(0, self.actual_value_x, toPuls = True
+        # self.ChangeUnit(0, self.actual_visu_val_x, toPuls = True
         self.freq_vec[0] = ziel - xIst
         self.freq_vec[0] = abs(int(ceil(self.freq_vec[0])))
         ziel = self.ChangeUnit(0, ziel)
-        self.target_point_x = ziel
+        self.visu_target_point_x = ziel
 
     @QtCore.Slot(int)
     def MoveY(self, ziel):
         yIst = MotorSteuerung.GetPosition(1)
-        # self.ChangeUnit(1, self.actual_value_y, toPuls = True)
+        # self.ChangeUnit(1, self.actual_visu_val_y, toPuls = True)
         self.freq_vec[1] = ziel - yIst
         self.freq_vec[1] = abs(int(ceil(self.freq_vec[1])))
         ziel = self.ChangeUnit(1, ziel)
-        self.target_point_y = ziel
+        self.visu_target_point_y = ziel
 
     @QtCore.Slot(int)
     def MoveZ(self, ziel):
         zIst = MotorSteuerung.GetPosition(2)
-        # self.ChangeUnit(2, self.actual_value_z, toPuls = True)
+        # self.ChangeUnit(2, self.actual_visu_val_z, toPuls = True)
         self.freq_vec[2] = ziel - zIst
         self.freq_vec[2] = abs(int(ceil(self.freq_vec[2])))
         ziel = self.ChangeUnit(2, ziel)
-        self.target_point_z = ziel
+        self.visu_target_point_z = ziel
 
     @QtCore.Slot(bool)
     def ZyklusStart(self):
         if not self.zykl_start and not self.zykl_stop:
-            if self.space_x or self.space_y or self.space_z or self.kalibration or self.kontur:
+            if self.distance_x or self.distance_y or self.distance_z or self.calibration_active or self.contouring_active:
                 self.zykl_start = True
-                if self.kalibration or self.kontur:
-                    self.autoStart = True
+                if self.calibration_active or self.contouring_active:
+                    self.auto_start = True
         else:
             self.zykl_start = False
             if self.zykl_stop:
@@ -714,29 +728,29 @@ class GLWidget(QtOpenGL.QGLWidget):
     def ZyklusStop(self):
         if not self.zykl_stop:
             self.zykl_stop = True
-            if not self.onlyVis and self.zykl_start:
+            if not self.visu_only_activ and self.zykl_start:
                 self.motor_steering.Stopping()
         else:
             self.zykl_stop = False
-            if not self.onlyVis:
+            if not self.visu_only_activ:
                 self.motor_steering.ClearStop()
         self.updateStartStop.emit([self.zykl_start, self.zykl_stop])
 
     @QtCore.Slot(bool)
     def ZyklusHardStop(self):
-        if not self.onlyVis and self.zykl_start:
+        if not self.visu_only_activ and self.zykl_start:
             self.ResetToStart()
         self.zykl_start = False
 
     @QtCore.Slot(bool)
     def KalibrationSwitch(self):
-        if self.kalibration:
-            self.kalibration = False
+        if self.calibration_active:
+            self.calibration_active = False
             self.ResetToStart()
             print('Kalibration OFF')
         else:
-            if not self.kontur:
-                self.kalibration = True
+            if not self.contouring_active:
+                self.calibration_active = True
                 self.updateStatus.emit('kal')
                 print('Kalibration ON')
             else:
@@ -745,17 +759,18 @@ class GLWidget(QtOpenGL.QGLWidget):
 
     @QtCore.Slot(bool)
     def KonturSwitch(self):
-        self.posGen = None
-        if self.kontur:
-            self.kontur = False
-            self.konturFile = None
+        self.generated_pos_vec = None
+        if self.contouring_active:
+            self.contouring_active = False
+            self.contouring_file = None
             self.ResetToStart()
         else:
-            if not self.kalibration:
-                if self.konturFile != None:
-                    self.kontur = True
+            if not self.calibration_active:
+                if self.contouring_file != None:
+                    self.contouring_active = True
                     print("Konturing gestartet")
-                    self.posGen = ObjLoader.PosGenerate(self.konturFile)
+                    self.generated_pos_vec = ObjLoader.PosGenerate(
+                        self.contouring_file)
                     self.updateStatus.emit('kon')
                 else:
                     print("..::ERROR::..\nKein File vorhanden")
@@ -769,20 +784,20 @@ class GLWidget(QtOpenGL.QGLWidget):
 
     @QtCore.Slot(float)
     def ResetViewpos(self):
-        self.viewM = pyrr.matrix44.create_look_at(pyrr.Vector3(
+        self.view_matrix = pyrr.matrix44.create_look_at(pyrr.Vector3(
             [5, 0, 20]), pyrr.Vector3([0, 0, 0]), pyrr.Vector3([0, 1, 0]))
         self.SetViewRotation()
 
     @QtCore.Slot(float)
     def SetToVis(self):
-        if not self.onlyVis:
-            self.onlyVis = True
-            self.updateStatus.emit("onlyVis")
-            self.checkList = [False, False, False, False]
+        if not self.visu_only_activ:
+            self.visu_only_activ = True
+            self.updateStatus.emit("visu_only_activ")
+            self.motor_check_list = [False, False, False, False]
             print("Visualisierung only ON")
-        elif self.onlyVis and not self.is_set:
+        elif self.visu_only_activ and not self.is_set:
             self.updateStatus.emit("notonlyVis")
-            self.onlyVis = False
+            self.visu_only_activ = False
             print("Visualisierung only OFF")
         else:
             print(
@@ -795,25 +810,25 @@ class GLWidget(QtOpenGL.QGLWidget):
         for posFile in posFiles:
             with open(posFile, "w", encoding="utf8") as f:
                 f.write('0')
-        self.actual_value_x = 0
-        self.actual_value_y = 0
-        self.actual_value_z = 0
+        self.actual_visu_val_x = 0
+        self.actual_visu_val_y = 0
+        self.actual_visu_val_z = 0
         self.updateSpinnerVal.emit()
 
     @QtCore.Slot(bool)
     def SetKonturFile1(self):
-        self.konturFile = "./ObjFiles/HTL.obj"
-        print("KonturFile: ", self.konturFile)
+        self.contouring_file = "./ObjFiles/HTL.obj"
+        print("KonturFile: ", self.contouring_file)
 
     @QtCore.Slot(bool)
     def SetKonturFile2(self):
-        self.konturFile = "./ObjFiles/HalloWelt.obj"
-        print("KonturFile: ", self.konturFile)
+        self.contouring_file = "./ObjFiles/HalloWelt.obj"
+        print("KonturFile: ", self.contouring_file)
 
     @QtCore.Slot(bool)
     def SetKonturFile3(self):
-        self.konturFile = "C:/HAHAHA3"
-        print("KonturFile: ", self.konturFile)
+        self.contouring_file = "C:/HAHAHA3"
+        print("KonturFile: ", self.contouring_file)
 
 
 class MainWindow(QtWidgets.QMainWindow):
@@ -1061,7 +1076,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     @QtCore.Slot(str)
     def UpdateStatus(self, status):
-        if status == "onlyVis":
+        if status == "visu_only_activ":
             self.visuStattxt = "onlyVisual"
             status = self.oldStatus
         elif status == "notonlyVis":
