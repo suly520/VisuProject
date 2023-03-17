@@ -56,9 +56,9 @@ class GLWidget(QtOpenGL.QGLWidget):
         self.freq_pos_list = (MotorSteuerung.GetPosition(
             0), MotorSteuerung.GetPosition(1), MotorSteuerung.GetPosition(2))
         # Es gibt die Einheit Pulse und eine Einheit für die Visualisierung
-        # mit ChangeUnit() werden die Pulse umgewandelt
-        self.actual_visu_val_x, self.actual_visu_val_y, self.actual_visu_val_z = [
-            self.ChangeUnit(i, pose) for i, pose in enumerate(self.freq_pos_list, 0)]
+        # mit change_unit() werden die Pulse umgewandelt
+        self.actual_pos_x, self.actual_pos_y, self.actual_pos_z = [
+            self.change_unit(i, pose) for i, pose in enumerate(self.freq_pos_list, 0)]
         self.visu_start_pos_x = self.visu_start_pos_y = self.visu_start_pos_z = 0
         self.visu_target_point_x = self.visu_target_point_y = self.visu_target_point_z = 0
         self.overall_distance_x = self.overall_distance_y = self.overall_distance_z = 0
@@ -85,8 +85,8 @@ class GLWidget(QtOpenGL.QGLWidget):
         self.proj_loc: OpenGL.GL.shaders.ShaderProgram
         self.view_m_loc: OpenGL.GL.shaders.ShaderProgram
         self.visu_pos_vec: list
-        self.visu_traget_pos_vec: list
-        self.slist: list
+        self.traget_pos_vec: list
+        self.s_vec: list
         self.motor_check_x: bool
         self.motor_check_y: bool
         self.motor_check_z: bool
@@ -100,7 +100,7 @@ class GLWidget(QtOpenGL.QGLWidget):
         self.rotation_matrix_x: pyrr.Matrix44
         self.generated_pos_vec: list
 
-        """Für definierte Funktionen der Steuerung"""
+        """Für definierte Funktionen der steering"""
         # Die zwei Hauptfunktionen sind Kalibrieren und Konturing außerdem gibt
         # es noch die MöGL.glichkeit onlyVisual
         self.calibration_active = False
@@ -131,16 +131,17 @@ class GLWidget(QtOpenGL.QGLWidget):
         self.old_rotation_vec = list()
         self.old_translation_vec = list()
         # Matritzen für das Positionieren und Bewegen der Objekte
-        self.axis_matrix_x = self.axis_matrix_y = self.axis_matrix_z = pyrr.matrix44.create_from_translation(
+        self.axis_matrix_x = pyrr.matrix44.create_from_translation(
             pyrr.Vector3([0, -3, 0]))  # y-5
+        self.axis_matrix_y = self.axis_matrix_z = self.axis_matrix_x
         self.translation_list = [self.axis_matrix_x,
                                  self.axis_matrix_x, self.axis_matrix_x]
         self.translation_matrix_x = pyrr.Matrix44.from_translation(
-            [0, 0, self.actual_visu_val_x])
+            [0, 0, self.actual_pos_x])
         self.translation_matrix_y = pyrr.Matrix44.from_translation(
-            [self.actual_visu_val_y, 0, 0])
+            [self.actual_pos_y, 0, 0])
         self.translation_matrix_z = pyrr.Matrix44.from_translation(
-            [0, -self.actual_visu_val_z, 0])
+            [0, -self.actual_pos_z, 0])
         # Textur- und Objfilepfade
         self.texture_files = "./TexturFiles/STEP.jpg"
         self.obj_files = [
@@ -149,7 +150,7 @@ class GLWidget(QtOpenGL.QGLWidget):
             "./ObjFiles/Z.obj",
         ]
         # Ladend der Informationen für das Shaderprogramm
-        loaded_objects = self.LoadObjList()
+        loaded_objects = self.load_objects()
         self.obj_indices = loaded_objects[0]
         self.obj_buffers = loaded_objects[1]
         # Timer führt die gewählte Funktion(self.Ablauf) aus ist für die Event-loop verantwortlich.
@@ -159,10 +160,11 @@ class GLWidget(QtOpenGL.QGLWidget):
 
 # OpenGL Grundfunktionen für PySide2 / init, draw, resize /
     def initializeGL(self):
-        """Hier wird alles (Vertecies, Buffer und WidgetDisplay) für das Zeichnen initialisiert(vorbereitet)"""
+        """Hier wird alles (Vertecies, Buffer und WidgetDisplay) 
+        für das Zeichnen initialisiert(vorbereitet)"""
         OpenGL.GL.glEnable(OpenGL.GL.GL_DEPTH_TEST)
         textures = OpenGL.GL.glGenTextures(1)
-        self.LoadTexture(self.texture_files, textures)
+        self.load_texture(self.texture_files, textures)
         obj_properties = self.create_obj_properties(self.obj_buffers)
         self.vert_buf_obj = obj_properties[0]
         self.vert_arr_obj = obj_properties[1]
@@ -181,9 +183,10 @@ class GLWidget(QtOpenGL.QGLWidget):
                 OpenGL.GL.GL_TRIANGLES, 0, len(self.obj_indices[i]))
 
     def resizeGL(self, width, height):
-        """Hier wird die Einstellung des Viewports (Modelansicht) an die Größe des Fensters angepasst"""
+        """Hier wird die Einstellung des Viewports (Modelansicht)
+        an die Größe des Fensters angepasst"""
         OpenGL.GL.glViewport(0, 0, width, height)
-        shader = self.CreateShader()
+        shader = self.create_shader()
         self.model_loc = OpenGL.GL.glGetUniformLocation(shader, "model")
         self.proj_loc = OpenGL.GL.glGetUniformLocation(shader, "projection")
         self.view_m_loc = OpenGL.GL.glGetUniformLocation(shader, "view")
@@ -193,7 +196,7 @@ class GLWidget(QtOpenGL.QGLWidget):
             self.view_m_loc, 1, OpenGL.GL.GL_FALSE, self.view_matrix)
 
     @staticmethod
-    def CreateShader():
+    def create_shader():
         """Hier werden die Shaderprogramme erstellt und an die GPU als Schnittstelle gesendet"""
         vertex_src = """
         # version 300 es
@@ -231,9 +234,9 @@ class GLWidget(QtOpenGL.QGLWidget):
         }
         """
         # compileProgramm compeliert die Shaderprogramme für die GPU
-        shader = compileProgram(compileShader(vertex_src, OpenGL.GL.GL_VERTEX_SHADER), 
+        shader = compileProgram(compileShader(vertex_src, OpenGL.GL.GL_VERTEX_SHADER),
                                 compileShader(fragment_src, OpenGL.GL.GL_FRAGMENT_SHADER))
-        # mit OpenGL.GL.glUseProgramm werden die Shaderprogramme 
+        # mit OpenGL.GL.glUseProgramm werden die Shaderprogramme
         # ausgewählt und dienen als Schnittstelle für die GPU
         OpenGL.GL.glUseProgram(shader)
         return shader
@@ -243,8 +246,8 @@ class GLWidget(QtOpenGL.QGLWidget):
         """Hier werden die Vertex Array- und Vertex Buffer Objekte erstellt"""
         vertex_array_object = OpenGL.GL.glGenVertexArrays(len(
             bufferlist))    # enthält die Informationen zu den Vertexdaten aus den
-                            # vertex_buffer_object's
-                            # (Datenformat, welches vertex_buffer_object , ...)
+        # vertex_buffer_object's
+        # (Datenformat, welches vertex_buffer_object , ...)
         # es enthält die eigendlichen Vertexdaten der Objekte
         vertex_buffer_object = OpenGL.GL.glGenBuffers(len(bufferlist))
 
@@ -255,7 +258,8 @@ class GLWidget(QtOpenGL.QGLWidget):
             OpenGL.GL.glBindVertexArray(vertex_array_object[i])
 
             # das vertex_buffer_object wird an den index i gebunden
-            OpenGL.GL.glBindBuffer(OpenGL.GL.GL_ARRAY_BUFFER, vertex_buffer_object[i])
+            OpenGL.GL.glBindBuffer(
+                OpenGL.GL.GL_ARRAY_BUFFER, vertex_buffer_object[i])
             # die Vertexdaten werden im vertex_buffer_object deklariert
             OpenGL.GL.glBufferData(
                 OpenGL.GL.GL_ARRAY_BUFFER, buffer.nbytes, buffer, OpenGL.GL.GL_STATIC_DRAW)
@@ -264,32 +268,36 @@ class GLWidget(QtOpenGL.QGLWidget):
             # vertices
             OpenGL.GL.glEnableVertexAttribArray(0)
             OpenGL.GL.glVertexAttribPointer(
-                0, 4, OpenGL.GL.GL_FLOAT, OpenGL.GL.GL_FALSE, buffer.itemsize * 8, ctypes.c_void_p(0))
+                0, 4, OpenGL.GL.GL_FLOAT, OpenGL.GL.GL_FALSE,
+                buffer.itemsize * 8, ctypes.c_void_p(0))
             # textures
             OpenGL.GL.glEnableVertexAttribArray(1)
             OpenGL.GL.glVertexAttribPointer(
-                1, 4, OpenGL.GL.GL_FLOAT, OpenGL.GL.GL_FALSE, buffer.itemsize * 8, ctypes.c_void_p(12))
+                1, 4, OpenGL.GL.GL_FLOAT, OpenGL.GL.GL_FALSE,
+                buffer.itemsize * 8, ctypes.c_void_p(12))
             # normals
             OpenGL.GL.glEnableVertexAttribArray(2)
             OpenGL.GL.glVertexAttribPointer(
-                2, 4, OpenGL.GL.GL_FLOAT, OpenGL.GL.GL_FALSE, buffer.itemsize * 8, ctypes.c_void_p(20))
+                2, 4, OpenGL.GL.GL_FLOAT, OpenGL.GL.GL_FALSE,
+                buffer.itemsize * 8, ctypes.c_void_p(20))
 
         return vertex_array_object, vertex_buffer_object
 
-    def LoadObjList(self):
-        """Hier werden die Objecte für die 3D-Visulation geladen und eine indeciesliste und Bufferliste erstellt"""
+    def load_objects(self):
+        """Hier werden die Objecte für die 3D-Visulation geladen und eine indeciesliste 
+        und Bufferliste erstellt"""
         obj_indices = []
         obj_buffers = []
-        for objFile in self.obj_files:
-            if len(objFile) == 1:
+        for obj_file in self.obj_files:
+            if len(obj_file) == 1:
                 indecies, buffers = ObjLoader.LoadModel(self.obj_files)
-            indecies, buffers = ObjLoader.LoadModel(objFile)
+            indecies, buffers = ObjLoader.LoadModel(obj_file)
             obj_indices.append(indecies)
             obj_buffers.append(buffers)
         return obj_indices, obj_buffers
 
     @staticmethod
-    def LoadTexture(path, texture):
+    def load_texture(path, texture):
         """Hier werden die Texturen geladen und an das Object gebunden"""
         OpenGL.GL.glBindTexture(OpenGL.GL.GL_TEXTURE_2D, texture)
         # Parameter für das Texturen wrapping
@@ -305,48 +313,51 @@ class GLWidget(QtOpenGL.QGLWidget):
         # load image
         image = Image.open(path)
         image = image.transpose(Image.FLIP_TOP_BOTTOM)
-        imgData = image.convert("RGBA").tobytes()
+        img_data = image.convert("RGBA").tobytes()
 
         OpenGL.GL.glTexImage2D(OpenGL.GL.GL_TEXTURE_2D, 0, OpenGL.GL.GL_RGBA, image.width,
-                               image.height, 0, OpenGL.GL.GL_RGBA, OpenGL.GL.GL_UNSIGNED_BYTE, imgData)
+                image.height, 0, OpenGL.GL.GL_RGBA, OpenGL.GL.GL_UNSIGNED_BYTE, img_data)
         return texture
 
-    def ChangeUnit(self, achse, inp, toPuls=False):
+    def change_unit(self, achse, inp, to_frequency=False):
         """Ist für das umwandeln von Pulsen in Visualisierungseinheit"""
-        if not toPuls:
+        if not to_frequency:
             outp = inp * \
                 self.max_visu_area_vec[achse] / self.max_freq_vec[achse]
-        if toPuls:
+        if to_frequency:
             outp = inp * self.max_freq_vec[achse] / \
                 self.max_visu_area_vec[achse]
         return outp
 
-    def Steuerung(self):
-        """Hier werden die Position gesetzt welche die Maschine anfahren und visualisiert werden soll"""
+    def steering(self):
+        """Hier werden die Position gesetzt welche die Maschine anfahren und 
+        visualisiert werden soll"""
 
         # Diese Bedingung ist für das setzten der Kalibrations- bzw. Konturposition
         if not self.zykl_stop and not self.is_set and (self.calibration_active or self.contouring_active):
-            self.SetAutoPos()
-            # ist step größer old_step ist der Schritt gesetzt worden und kann automatisch gestartet werden
+            self.set_auto_pos()
+            # ist step größer old_step ist der Schritt gesetzt
+            # worden und kann automatisch gestartet werden
             if self.current_step > self.old_step and self.auto_start:
                 self.old_step = self.current_step
                 if self.calibration_active and self.current_step > 0 or self.contouring_active and self.current_step > 1:
                     self.ZyklusStart()
 
-        # der Weg wird für die Berechnung der Geschwindigkeit benötigt und auf Grund des Vorzeichens für der Motordrehrichtung gebraucht
-        self.distance_x = self.visu_target_point_x - self.actual_visu_val_x
-        self.distance_y = self.visu_target_point_y - self.actual_visu_val_y
-        self.distance_z = self.visu_target_point_z - self.actual_visu_val_z
+        # der Weg wird für die Berechnung der Geschwindigkeit benötigt und auf Grund
+        # des Vorzeichens für der Motordrehrichtung gebraucht
+        self.distance_x = self.visu_target_point_x - self.actual_pos_x
+        self.distance_y = self.visu_target_point_y - self.actual_pos_y
+        self.distance_z = self.visu_target_point_z - self.actual_pos_z
 
-        self.visu_pos_vec = [self.actual_visu_val_x,
-                             self.actual_visu_val_y, self.actual_visu_val_z]
-        self.visu_traget_pos_vec = [self.visu_target_point_x,
-                                    self.visu_target_point_y, self.visu_target_point_z]
-        self.slist = [self.distance_x, self.distance_y, self.distance_z]
+        self.visu_pos_vec = [self.actual_pos_x,
+                             self.actual_pos_y, self.actual_pos_z]
+        self.traget_pos_vec = [self.visu_target_point_x,
+                               self.visu_target_point_y, self.visu_target_point_z]
+        self.s_vec = [self.distance_x, self.distance_y, self.distance_z]
 
         # gibt die Geschwindigkeit und ob der moter eingeschaltet werden soll zurück
-        motorSettings = vNeu(self.distance_x, self.distance_y,
-                             self.distance_z, self.vmax)
+        eng_settings = vNeu(self.distance_x, self.distance_y,
+                            self.distance_z, self.vmax)
 
         if self.zykl_start and not self.zykl_stop:
             if not self.visu_only_activ:
@@ -354,33 +365,39 @@ class GLWidget(QtOpenGL.QGLWidget):
                 self.freq_pos_list = self.motor_steering.GetMotorPosition()
                 for i, pose in enumerate(self.visu_pos_vec):
                     # Drehrichtungsbestimmung
-                    self.Stepper(
-                        i, pose, self.visu_traget_pos_vec[i], self.slist[i], motorSettings[i])
+                    self.stepper(
+                        i, pose, self.traget_pos_vec[i], self.s_vec[i], eng_settings[i])
 
-                self.actual_visu_val_x, self.actual_visu_val_y, self.actual_visu_val_z = [self.ChangeUnit(i, poses) for i, poses in enumerate(
-                    self.freq_pos_list, 0)]  # position für die Visualisierung
+                self.actual_pos_x, self.actual_pos_y, self.actual_pos_z = [
+                    self.change_unit(i, poses) for i, poses in enumerate(self.freq_pos_list, 0)]
+                # position für die Visualisierung
 
             else:
-                self.actual_visu_val_x, self.actual_visu_val_y, self.actual_visu_val_z = [self.Stepper(
-                    i, pose, self.visu_traget_pos_vec[i], self.slist[i], motorSettings[i]) for i, pose in enumerate(self.visu_pos_vec, 0)]
-                # um die aktuelle Motorposition zu simulieren muss der Visu wert in Pulse umgewandelt werden
-                self.freq_pos_list = [int(self.ChangeUnit(i, poses, toPuls=True))
+                self.actual_pos_x, self.actual_pos_y, self.actual_pos_z = [
+                    self.stepper(
+                        i, pose, self.traget_pos_vec[i], self.s_vec[i], eng_settings[i])
+                    for i, pose in enumerate(self.visu_pos_vec, 0)]
+                # um die aktuelle Motorposition zu simulieren muss der Visu wert in Pulse
+                # umgewandelt werden
+                self.freq_pos_list = [int(self.change_unit(i, poses, to_frequency=True))
                                       for i, poses in enumerate(self.visu_pos_vec, 0)]
 
-            if not self.is_set:  # um die MotorSteuerung nicht ständig aus und einzuschalten und gewisse Variablen zu setzen die nur einmal betätigt werden sollen
+            if not self.is_set:  # um die MotorSteuerung nicht ständig aus und einzuschalten
+                # und gewisse Variablen zu setzen die nur einmal betätigt
+                #  werden sollen
                 if not self.contouring_active:
                     print('..:: Start ::..')
                 self.is_set = True
-                self.visu_start_pos_x = self.actual_visu_val_x
-                self.visu_start_pos_y = self.actual_visu_val_y
-                self.visu_start_pos_z = self.actual_visu_val_z
+                self.visu_start_pos_x = self.actual_pos_x
+                self.visu_start_pos_y = self.actual_pos_y
+                self.visu_start_pos_z = self.actual_pos_z
                 # wird benötigt für das Kalkulieren der Prozesslänge für den Progressbar
                 self.overall_distance_x = self.distance_x
                 self.overall_distance_y = self.distance_y
                 self.overall_distance_z = self.distance_z
                 if not self.visu_only_activ:
                     self.motor_steering.Start(self.direction_vec, self.v_vec, self.freq_vec,
-                                              self.max_freq_vec, self.min_freq_vec, motorSettings[3:6])
+                                              self.max_freq_vec, self.min_freq_vec, eng_settings[3:6])
 
             if not self.visu_only_activ:
                 self.motor_check_x, self.motor_check_y, self.motor_check_z = self.motor_steering.GetMotorStatus()
@@ -399,10 +416,11 @@ class GLWidget(QtOpenGL.QGLWidget):
                 if self.calibration_active or self.contouring_active:
                     self.current_step += 1
                     self.next_step_ready = True
-            self.UpdateStausMainWindow()
+            self.update_stats_on_main_win()
 
-    def SetAutoPos(self):
-        schrittliste = [
+    def set_auto_pos(self):
+        """is for automated steering while contouring or calibrating"""
+        step_vec = [
             [0, 0, 0], [4, 4, 1.7], [0, 0, 0], [4, 4, 0], [
                 0, 0, 1.7], [4, 4, 0], [0, 0, 0],
             [4, 0, 1.7], [0, 4, 0], [4, 0, 1.7], [
@@ -414,61 +432,63 @@ class GLWidget(QtOpenGL.QGLWidget):
             [0, 0, 1.7], [0, 0, 0], "ENDE"
         ]
 
+        actual_pos_vec = [self.actual_pos_x, self.actual_pos_y, self.actual_pos_z]
         if self.next_step_ready:
             if self.calibration_active:
-                if schrittliste[self.current_step] == [self.actual_visu_val_x, self.actual_visu_val_y, self.actual_visu_val_z]:
+                if step_vec[self.current_step] == actual_pos_vec:
                     self.current_step += 1
 
-                if not schrittliste[self.current_step] == "ENDE":
-                    Schritte = schrittliste[self.current_step]
+                if step_vec[self.current_step] != "ENDE":
+                    steps = step_vec[self.current_step]
                     print("SchrittNR.", self.current_step,
-                          schrittliste[self.current_step])
+                          step_vec[self.current_step])
                 else:
                     self.KalibrationSwitch()
-                    self.UpdateStausMainWindow()
+                    self.update_stats_on_main_win()
                     self.updateProgress.emit(100)
                     print("Kallibrierung abgeschlossen")
 
             elif self.contouring_active:
                 self.current_step += 1
-                posFail = None
+                pos_fail = None
 
                 try:
-                    Schritte = next(self.generated_pos_vec)
-                    for i, j in enumerate(Schritte, 0):
+                    steps = next(self.generated_pos_vec)
+                    for i, j in enumerate(steps, 0):
                         if i == 2 and float(j) > 0 and float(j) < 1.75:
-                            Schritte[i] = float(j)
+                            steps[i] = float(j)
                         elif float(j) > 0 and float(j) < 4.5:
-                            Schritte[i] = float(j) * 2
+                            steps[i] = float(j) * 2
                         else:
-                            posFail = Schritte[i]
+                            pos_fail = steps[i]
                             raise StopIteration
                 except StopIteration:
                     self.KonturSwitch()
-                    self.UpdateStausMainWindow()
+                    self.update_stats_on_main_win()
                     self.updateProgress.emit(100)
-                    if not posFail:
+                    if not pos_fail:
                         print("Konturing abgeschlossen")
                     else:
                         print(
-                            f"..::ERROR::.. Konturvorgabe out of range! Kunturpos: {posFail} ")
+                            f"..::ERROR::.. Konturvorgabe out of range! Kunturpos: {pos_fail} ")
 
             if (self.calibration_active or self.contouring_active):
                 self.next_step_ready = False
-                pulsMovePoses = [self.ChangeUnit(
-                    i, pos, toPuls=True) for i, pos in enumerate(Schritte, 0)]
-                self.MoveX(pulsMovePoses[0])
-                self.MoveY(pulsMovePoses[1])
-                self.MoveZ(pulsMovePoses[2])
+                target_points = [self.change_unit(
+                    i, pos, to_frequency=True) for i, pos in enumerate(steps, 0)]
+                self.move_to_x(target_points[0])
+                self.move_to_y(target_points[1])
+                self.move_to_z(target_points[2])
 
-    def Stepper(self, achse, ist, soll, weg, v):
+    def stepper(self, achse, ist, soll, weg, vel):
+        """steps and commands for the steppermotor"""
         if not self.zykl_stop:
             if weg > 0 and not self.zykl_stop:
-                ist += v
+                ist += vel
                 self.direction_vec[achse] = 0
 
             elif weg < 0 and not self.zykl_stop:
-                ist -= v
+                ist -= vel
                 self.direction_vec[achse] = 1
 
             if weg > 0 and ist >= soll or weg < 0 and ist <= soll or weg == 0:
@@ -483,9 +503,10 @@ class GLWidget(QtOpenGL.QGLWidget):
             if self.visu_only_activ:
                 return ist
 
-    def UpdateStausMainWindow(self):
+    def update_stats_on_main_win(self):
+        """updates stats of UI (progressbar, motorstatus, poscounter, startstop)"""
         if not self.calibration_active or self.contouring_active:
-            self.CollData4Probar()
+            self.record_progress()
         else:
             self.updateProgress.emit(int(ceil(self.current_step*3.703703704)))
 
@@ -493,7 +514,7 @@ class GLWidget(QtOpenGL.QGLWidget):
         self.updateMotorStatus.emit(self.motor_check_list)
         self.updateStartStop.emit([self.zykl_start, self.zykl_stop])
 
-    def CollData4Probar(self):
+    def record_progress(self):
         if self.overall_distance_x != 0 and self.distance_x != 0:
             self.progress_x = abs(self.distance_x * 100 /
                                   abs(self.overall_distance_x))
@@ -515,48 +536,49 @@ class GLWidget(QtOpenGL.QGLWidget):
                                   abs(self.overall_distance_z))
             self.updateProgress.emit(int(ceil(100 - self.progress_z)))
         elif self.overall_distance_z != 0 and self.distance_z == 0:
-            self.progress_z = abs(self.actual_visu_val_z *
+            self.progress_z = abs(self.actual_pos_z *
                                   100 / abs(self.overall_distance_z))
             self.updateProgress.emit(int(ceil(self.progress_z)))
 
     def mouseMoveEvent(self, event: QtGui.QMouseEvent):
-        posX = 0
-        posY = 0
-        oldPosList = []
+        """describes the mouse behaviour in the 3D visualisation"""
+        mouse_pos_x = 0
+        mouse_pos_y = 0
+        old_pos = []
         if self.middle_button or self.right_button:
-            oldPosList = self.old_translation_vec
+            old_pos = self.old_translation_vec
         elif self.left_button:
-            oldPosList = self.old_rotation_vec
-        if len(oldPosList):
-            xold = oldPosList[0]
-            yold = oldPosList[1]
+            old_pos = self.old_rotation_vec
+        if old_pos:
+            old_mouse_pos_x = old_pos[0]
+            old_mouse_pos_y = old_pos[1]
 
-            deltaX = xold - QtGui.QMouseEvent.x(event)
-            deltaY = yold - QtGui.QMouseEvent.y(event)
+            delta_mouse_pos_x = old_mouse_pos_x - QtGui.QMouseEvent.x(event)
+            delta_mouse_pos_y = old_mouse_pos_y - QtGui.QMouseEvent.y(event)
 
-            if abs(deltaX) > abs(deltaY) and deltaX > 0:
-                posX += 1  # links
-            elif abs(deltaX) > abs(deltaY) and deltaX < 0:
-                posX -= 1  # rechts
-            elif abs(deltaY) > abs(deltaX) and deltaY > 0:
-                posY += 1  # oben
-            elif abs(deltaY) > abs(deltaX) and deltaY < 0:
-                posY -= 1  # unten
+            if abs(delta_mouse_pos_x) > abs(delta_mouse_pos_y) and delta_mouse_pos_x > 0:
+                mouse_pos_x += 1  # links
+            elif abs(delta_mouse_pos_x) > abs(delta_mouse_pos_y) and delta_mouse_pos_x < 0:
+                mouse_pos_x -= 1  # rechts
+            elif abs(delta_mouse_pos_y) > abs(delta_mouse_pos_x) and delta_mouse_pos_y > 0:
+                mouse_pos_y += 1  # oben
+            elif abs(delta_mouse_pos_y) > abs(delta_mouse_pos_x) and delta_mouse_pos_y < 0:
+                mouse_pos_y -= 1  # unten
 
         newPosX = QtGui.QMouseEvent.x(event)
         newPosY = QtGui.QMouseEvent.y(event)
-        oldPosList = [newPosX, newPosY]
+        old_pos = [newPosX, newPosY]
 
         if self.left_button:
-            self.old_rotation_vec = oldPosList
-            self.visu_rotation_x = posY/150
-            self.visu_rotation_y = posX/60
+            self.old_rotation_vec = old_pos
+            self.visu_rotation_x = mouse_pos_y/150
+            self.visu_rotation_y = mouse_pos_x/60
             self.SetViewRotation()
 
         elif self.middle_button or self.right_button:
-            self.old_translation_vec = oldPosList
-            transX = -posX * 0.1
-            transY = posY * 0.1
+            self.old_translation_vec = old_pos
+            transX = -mouse_pos_x * 0.1
+            transY = mouse_pos_y * 0.1
             if not self.right_button:
                 self.view_translation_matrix = pyrr.Matrix44.from_translation(
                     [transX, transY, 0])
@@ -570,7 +592,7 @@ class GLWidget(QtOpenGL.QGLWidget):
             self.view_matrix = pyrr.matrix44.multiply(
                 self.view_translation_matrix, self.view_matrix)
             self.resizeGL(self.width(), self.height())
-        return super().mouseMoveEvent(event)
+        return super(). mouseMoveEvent(event)
 
     def mousePressEvent(self, event: QtGui.QMouseEvent):
         if event.button() == QtCore.Qt.MouseButton.MiddleButton:
@@ -626,11 +648,11 @@ class GLWidget(QtOpenGL.QGLWidget):
 
     def SetTrans(self):
         self.translation_matrix_x = pyrr.Matrix44.from_translation(
-            [0, 0, self.actual_visu_val_x])
+            [0, 0, self.actual_pos_x])
         self.translation_matrix_y = pyrr.Matrix44.from_translation(
-            [self.actual_visu_val_y, 0, 0])
+            [self.actual_pos_y, 0, 0])
         self.translation_matrix_z = pyrr.Matrix44.from_translation(
-            [0, -self.actual_visu_val_z, 0])
+            [0, -self.actual_pos_z, 0])
 
         self.target_matrix_x = self.axis_matrix_x
         self.target_matrix_y = pyrr.matrix44.multiply(
@@ -659,7 +681,7 @@ class GLWidget(QtOpenGL.QGLWidget):
         self.resizeGL(self.width(), self.height())
 
     def Ablauf(self):
-        self.Steuerung()
+        self.steering()
         self.SetTrans()
         self.updateGL()
 
@@ -670,11 +692,11 @@ class GLWidget(QtOpenGL.QGLWidget):
         self.current_step = 0
         self.old_step = 0
         self.next_step_ready = True
-        self.actual_visu_val_x, self.actual_visu_val_y, self.actual_visu_val_z = [self.ChangeUnit(
+        self.actual_pos_x, self.actual_pos_y, self.actual_pos_z = [self.change_unit(
             i, pose) for i, pose in enumerate(self.freq_pos_list, 0)]
         self.updateStatus.emit('NOP')
         self.updateSpinnerVal.emit()  # Setzt die SpinerBox Werte auf die aktuelle Position
-        self.UpdateStausMainWindow()
+        self.update_stats_on_main_win()
 
 # Widgets Slots
     @QtCore.Slot()
@@ -685,30 +707,30 @@ class GLWidget(QtOpenGL.QGLWidget):
         OpenGL.GL.glDeleteVertexArrays(3)
 
     @QtCore.Slot(int)
-    def MoveX(self, ziel):
+    def move_to_x(self, ziel):
         xIst = MotorSteuerung.GetPosition(0)
-        # self.ChangeUnit(0, self.actual_visu_val_x, toPuls = True
+        # self.change_unit(0, self.actual_pos_x, to_frequency = True
         self.freq_vec[0] = ziel - xIst
         self.freq_vec[0] = abs(int(ceil(self.freq_vec[0])))
-        ziel = self.ChangeUnit(0, ziel)
+        ziel = self.change_unit(0, ziel)
         self.visu_target_point_x = ziel
 
     @QtCore.Slot(int)
-    def MoveY(self, ziel):
+    def move_to_y(self, ziel):
         yIst = MotorSteuerung.GetPosition(1)
-        # self.ChangeUnit(1, self.actual_visu_val_y, toPuls = True)
+        # self.change_unit(1, self.actual_pos_y, to_frequency = True)
         self.freq_vec[1] = ziel - yIst
         self.freq_vec[1] = abs(int(ceil(self.freq_vec[1])))
-        ziel = self.ChangeUnit(1, ziel)
+        ziel = self.change_unit(1, ziel)
         self.visu_target_point_y = ziel
 
     @QtCore.Slot(int)
-    def MoveZ(self, ziel):
+    def move_to_z(self, ziel):
         zIst = MotorSteuerung.GetPosition(2)
-        # self.ChangeUnit(2, self.actual_visu_val_z, toPuls = True)
+        # self.change_unit(2, self.actual_pos_z, to_frequency = True)
         self.freq_vec[2] = ziel - zIst
         self.freq_vec[2] = abs(int(ceil(self.freq_vec[2])))
-        ziel = self.ChangeUnit(2, ziel)
+        ziel = self.change_unit(2, ziel)
         self.visu_target_point_z = ziel
 
     @QtCore.Slot(bool)
@@ -810,9 +832,9 @@ class GLWidget(QtOpenGL.QGLWidget):
         for posFile in posFiles:
             with open(posFile, "w", encoding="utf8") as f:
                 f.write('0')
-        self.actual_visu_val_x = 0
-        self.actual_visu_val_y = 0
-        self.actual_visu_val_z = 0
+        self.actual_pos_x = 0
+        self.actual_pos_y = 0
+        self.actual_pos_z = 0
         self.updateSpinnerVal.emit()
 
     @QtCore.Slot(bool)
@@ -982,19 +1004,19 @@ class MainWindow(QtWidgets.QMainWindow):
         self.status.addPermanentWidget(self.abstand[0])
         self.status.addPermanentWidget(self.progressBar)
 
-        self.ui.xStartSpinBox.valueChanged.connect(self.glWidget.MoveX)
+        self.ui.xStartSpinBox.valueChanged.connect(self.glWidget.move_to_x)
         self.ui.xStartSpinBox.setRange(
             self.glWidget.min_freq_vec[0], self.glWidget.max_freq_vec[0])
         self.ui.xStartSpinBox.setSingleStep(100)
         self.ui.xStartSpinBox.setValue(MotorSteuerung.GetPosition(0))
 
-        self.ui.yStartSpinBox.valueChanged.connect(self.glWidget.MoveY)
+        self.ui.yStartSpinBox.valueChanged.connect(self.glWidget.move_to_y)
         self.ui.yStartSpinBox.setRange(
             self.glWidget.min_freq_vec[1], self.glWidget.max_freq_vec[1])
         self.ui.yStartSpinBox.setSingleStep(100)
         self.ui.yStartSpinBox.setValue(MotorSteuerung.GetPosition(1))
 
-        self.ui.zStartSpinBox.valueChanged.connect(self.glWidget.MoveZ)
+        self.ui.zStartSpinBox.valueChanged.connect(self.glWidget.move_to_z)
         self.ui.zStartSpinBox.setRange(
             self.glWidget.min_freq_vec[2], self.glWidget.max_freq_vec[2])
         self.ui.zStartSpinBox.setSingleStep(100)
