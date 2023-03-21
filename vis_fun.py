@@ -6,12 +6,12 @@ import numpy as np
 import OpenGL.GL
 from OpenGL.GL.shaders import compileProgram, compileShader
 from PIL import Image
-from PySide2 import QtCore, QtGui, QtOpenGL
+from PySide6 import QtCore, QtGui, QtOpenGLWidgets
 
 from Tools import MotorSteuerung, ObjLoader, vNeu
 
 
-class GLWidget(QtOpenGL.QGLWidget):
+class GLWidget(QtOpenGLWidgets.QOpenGLWidget):
     """Widget class containing all tools for handling servo motors and exchanging data between
       GLWidget and MainWindow
       """
@@ -619,7 +619,7 @@ class GLWidget(QtOpenGL.QGLWidget):
         """calls all the functions for the main procedure"""
         self.steering()
         self.translate_view()
-        self.updateGL()
+        self.update()
 
     def setup_starting(self):
         """prepares then members to auto start for contouring and calibrating"""
@@ -635,13 +635,13 @@ class GLWidget(QtOpenGL.QGLWidget):
         self.updateSpinnerVal.emit()  # Setzt die SpinerBox Werte auf die aktuelle Position
         self.update_stats_on_main_win()
 
-# Widgets Slots
+#Widgets Slots
     @QtCore.Slot()
     def free_recources(self):
         """Helper to clean up resources."""
         self.makeCurrent()
-        OpenGL.GL.glDeleteBuffers(3)
-        OpenGL.GL.glDeleteVertexArrays(3)
+        OpenGL.GL.glDeleteBuffers(len(self.vert_buf_obj),self.vert_buf_obj)
+        OpenGL.GL.glDeleteVertexArrays(len(self.vert_arr_obj), self.vert_arr_obj)
 
     @QtCore.Slot(int)
     def move_to_x(self, target_motor_pos):

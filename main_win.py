@@ -1,7 +1,7 @@
 """"this moduel does this"""
 import sys
 
-from PySide2 import QtCore, QtGui, QtWidgets
+from PySide6 import QtCore, QtGui, QtWidgets
 
 from Tools import MotorSteuerung, Ui_VisoWidget
 from Tools.numpad import Ui_Numpad
@@ -38,9 +38,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.progress_bar = QtWidgets.QProgressBar()
 
         self.conturing_menu = QtWidgets.QMenu("Konturen", self)
-        self.shape_1 = QtWidgets.QAction("Kontur1", self)
-        self.shape_2 = QtWidgets.QAction("Kontur2", self)
-        self.shape_3 = QtWidgets.QAction("Kontur3", self)
+        self.Kontur1 = QtGui.QAction("Kontur1", self)
+        self.Kontur2 = QtGui.QAction("Kontur2", self)
+        self.Kontur3 = QtGui.QAction("Kontur3", self)
         self.conturing_menu.addAction(self.shape_1)
         self.conturing_menu.addAction(self.shape_2)
         self.conturing_menu.addAction(self.shape_3)
@@ -379,6 +379,6 @@ if __name__ == '__main__':
     app = QtWidgets.QApplication(sys.argv)
     mainWin = MainWindow()
     mainWin.showMaximized()
-    res = app.exec_()
+    res = app.exec()
     mainWin.gl_widget.free_recources()
     sys.exit(res)

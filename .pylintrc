@@ -1,2 +1,2 @@
 [MAIN]
-ignored-modules=PySide2, OpenGL
+ignored-modules=PySide6,PySide2, OpenGL
