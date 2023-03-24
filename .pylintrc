@@ -1,0 +1,2 @@
+[MAIN]
+ignored-modules=PySide2, OpenGL
