@@ -19,9 +19,10 @@ class EmittingStream(QtCore.QObject):
 
 class MainWindow(QtWidgets.QMainWindow):
     """handles the QT Widgets and all UI relatet operations"""
-
+    #TODO:BEAUTY splitt class
+    
     def __init__(self, parent=None):
-        super(MainWindow, self).__init__(parent)
+        super().__init__(parent)
         self._init_labels()
         self.visu_ui = Ui_VisoWidget()
         self.docker_widget = QtWidgets.QDockWidget("Dock", self)

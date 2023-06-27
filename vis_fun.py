@@ -14,8 +14,8 @@ from Tools import MotorSteuerung, ObjLoader, vNeu
 class GLWidget(QtOpenGL.QGLWidget):
     """Widget class containing all tools for handling servo motors and exchanging data between
       GLWidget and MainWindow
-      TODO: Make the OOP concept more clear > better structure and better encapsulation
       """
+    #TODO:BEAUTY splitt class
     updateProgress = QtCore.Signal(int)
     updateLCD = QtCore.Signal(list)
     updateMotorStatus = QtCore.Signal(list)
@@ -24,7 +24,7 @@ class GLWidget(QtOpenGL.QGLWidget):
     updateSpinnerVal = QtCore.Signal()
 
     def __init__(self, parent=None):
-        super(GLWidget, self).__init__(parent)
+        super().__init__(parent)
         self.motor_steering = MotorSteuerung()
 
         self.middle_button = False
@@ -35,6 +35,8 @@ class GLWidget(QtOpenGL.QGLWidget):
 
         self.direction_vec = [0, 0, 0]
         self.freq_vec = [0, 0, 0]
+
+        #TODO:FIX use different velocity support
         self.v_vec = [0.0007, 0.0007, 0.0007]
         self.max_freq_vec = [1000, 1000, 1000]
         self.min_freq_vec = [0, 0, 0]
@@ -256,6 +258,7 @@ class GLWidget(QtOpenGL.QGLWidget):
 
     def change_unit(self, axis, inp, to_frequency=False):
         """scales the input to the desired min max value"""
+        #TODO:FIX change the scaling methode for using blender obj file
         if not to_frequency:
             outp = inp * \
                 self.max_visu_area_vec[axis] / self.max_freq_vec[axis]
@@ -265,9 +268,9 @@ class GLWidget(QtOpenGL.QGLWidget):
         return outp
 
     def steering(self):
-        """forwards/emits the motion signals to/to the motor module
-            TODO: use overloading or a seperate function to allow visual only for
-                  better readability and avoiding the multiple branches"""
+        """forwards/emits the motion signals to/to the motor module"""
+        #TODO:BEAUTY use overloading or a seperate function to allow visual only for
+        #            better readability and avoiding the multiple branches
         if not self.cycle_stop and not self.is_set and \
                 (self.calibration_active or self.contouring_active):
             self.set_auto_pos()
@@ -323,7 +326,7 @@ class GLWidget(QtOpenGL.QGLWidget):
             if not self.visu_only_activ:
                 self.motor_check_x, self.motor_check_y, self.motor_check_z, _ = \
                     self.motor_check_list = self.motor_steering.GetMotorStatus() + \
-                        (self.cycle_start,)
+                    (self.cycle_start,)
             else:
                 self.visu_check_vec = (
                     self.visu_check_x, self.visu_check_y, self.visu_check_z)
@@ -340,8 +343,9 @@ class GLWidget(QtOpenGL.QGLWidget):
             self.update_stats_on_main_win()
 
     def set_auto_pos(self):
-        """is for automated steering while contouring or calibrating
-        TODO: add a interpolation funktionality"""
+        """is for automated steering while contouring or calibrating"""
+        #TODO:BEAUTY split in sections for different mods
+        #TODO:FEATURE add a interpolation funktionality
         step_vec = [[0, 0, 0], [4, 4, 1.7], [0, 0, 0],
                     [4, 4, 0], [0, 0, 1.7], [4, 4, 0],
                     [0, 0, 0], [4, 0, 1.7], [0, 4, 0],
@@ -403,10 +407,8 @@ class GLWidget(QtOpenGL.QGLWidget):
                 self.move_to_z(target_points[2])
 
     def stepper(self, axis, actual, desired, distance, vel):
-        """
-            steps and commands for the steppermotor
-            # TODO change to only returnig function
-        """
+        """steps and commands for the steppermotor"""
+         #TODO:BEAUTY change to only returnig function
         if not self.cycle_stop:
             if distance > 0 and not self.cycle_stop:
                 actual += vel
@@ -469,6 +471,7 @@ class GLWidget(QtOpenGL.QGLWidget):
 
     def mouseMoveEvent(self, event: QtGui.QMouseEvent):
         """describes the mouse behaviour in the 3D visualisation mainly for rotate or tranlation"""
+        #TODO:FIX better control over 3d view
         mouse_pos_x = 0
         mouse_pos_y = 0
         old_pos = []
@@ -541,8 +544,8 @@ class GLWidget(QtOpenGL.QGLWidget):
             self.right_button = False
         return super().mousePressEvent(event)
 
-    # def mouseDoubleClickEvent(self, event: QtGui.QMouseEvent):
-    #   """should translate the view in a specific range"""
+    """def mouseDoubleClickEvent(self, event: QtGui.QMouseEvent):
+    #   "should translate the view in a specific range"
     #   if event.button() == QtCore.Qt.MouseButton.RightButton:
     #     if self.double_click_count < 5:
     #       self.trans_view_z = 1.5
@@ -557,7 +560,7 @@ class GLWidget(QtOpenGL.QGLWidget):
     #       self.view_translation_matrix, self.view_matrix)
     #     self.double_click_count += 1
     #     self.resizeGL(self.width(), self.height())
-    #   return super().mouseDoubleClickEvent(event)
+    #   return super().mouseDoubleClickEvent(event)"""
 
     def wheelEvent(self, event: QtGui.QWheelEvent):
         """handles the weel events for zooming the 3D model view"""
@@ -791,15 +794,15 @@ class GLWidget(QtOpenGL.QGLWidget):
 
     @QtCore.Slot(bool)
     def select_contour_1(self):
-        """selects a file for the contoutring function
-        TODO: Make the contouring more efficent"""
+        """selects a file for the contoutring function"""
+        #TODO:FIX Make the contouring more efficent
         self.contouring_file = "./ObjFiles/HTL.obj"
         print("[info]Contouring file: ", self.contouring_file)
 
     @QtCore.Slot(bool)
     def select_contour_2(self):
         """selects a file for the contoutring function"""
-        self.contouring_file = "./ObjFiles/HalloWelt.obj"
+        self.contouring_file = "./ObjFiles/cube.obj"
         print("[info]Contouring file: ", self.contouring_file)
 
     @QtCore.Slot(bool)

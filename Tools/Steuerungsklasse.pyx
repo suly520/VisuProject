@@ -15,9 +15,6 @@ from threading import RLock
 lck = threading.Lock()
 
 
-
-
-
 class PosError(Exception):
     """Wird aufgerufen wenn ein Positionierungsfehler vorliegt"""
     pass
@@ -27,7 +24,9 @@ class StopProcess(Exception):
     pass
 
 class MotorSteuerung:
-    
+    """"""
+    #TODO:FEATURE add limitswitch capabilities
+    #TODO:BEAUTY clean code
     def __init__(self, list pinList = [17, 5, 16, 27, 6, 20, 22, 13, 21]):
         cdef list achsList = [0, 1, 2] # die Zahlen sollen die Achse repräsentieren 0 = X / 1 = Y / 2 = Z 
         self.pinList = pinList   
@@ -96,6 +95,7 @@ class MotorSteuerung:
 
     @staticmethod
     def Checkpos(int achse, int direction, int pulse, int endMax, int endMin):
+        #TODO:FIX rework endpose handling
         cdef int achsPos = MotorSteuerung.GetPosition(achse)
     
         try:
@@ -149,7 +149,7 @@ class MotorSteuerung:
         cdef double j
         cdef int slowdownCounter = 0
 
-        
+        #TODO:FEATURE implement parameterizable acceleration control
         try:
             const = 0.0008 #getestet durch geogebra nur bei 0.0007
             if vmax < 0.0007:
