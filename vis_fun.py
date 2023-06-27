@@ -318,10 +318,12 @@ class GLWidget(QtOpenGL.QGLWidget):
                 self.overall_distance_z = self.distance_z
                 if not self.visu_only_activ:
                     self.motor_steering.Start(self.direction_vec, self.v_vec, self.freq_vec,
-                                        self.max_freq_vec, self.min_freq_vec, eng_settings[3:6])
+                                              self.max_freq_vec, self.min_freq_vec,
+                                              eng_settings[3:6])
             if not self.visu_only_activ:
-                self.motor_check_x, self.motor_check_y, self.motor_check_z, _= \
-                    self.motor_check_list = self.motor_steering.GetMotorStatus() + (self.cycle_start,)
+                self.motor_check_x, self.motor_check_y, self.motor_check_z, _ = \
+                    self.motor_check_list = self.motor_steering.GetMotorStatus() + \
+                        (self.cycle_start,)
             else:
                 self.visu_check_vec = (
                     self.visu_check_x, self.visu_check_y, self.visu_check_z)
@@ -787,10 +789,10 @@ class GLWidget(QtOpenGL.QGLWidget):
         self.actual_pos_z = 0
         self.updateSpinnerVal.emit()
 
-    """TODO: Make the contouring more efficent"""
     @QtCore.Slot(bool)
     def select_contour_1(self):
-        """selects a file for the contoutring function"""
+        """selects a file for the contoutring function
+        TODO: Make the contouring more efficent"""
         self.contouring_file = "./ObjFiles/HTL.obj"
         print("[info]Contouring file: ", self.contouring_file)
 
