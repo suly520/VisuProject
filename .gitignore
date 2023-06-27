@@ -167,3 +167,5 @@ Tools/X.txt
 Tools/Y.txt
 Tools/Z.txt
 test.py
+main_win.py.orig
+vis_fun.py.orig

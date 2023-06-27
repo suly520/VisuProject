@@ -23,10 +23,10 @@ class StopProcess(Exception):
     """Wird für das Stoppen der funktion benötigt"""
     pass
 
+#TODO:FEATURE add limitswitch capabilities
+#TODO:BEAUTY clean code
 class MotorSteuerung:
     """"""
-    #TODO:FEATURE add limitswitch capabilities
-    #TODO:BEAUTY clean code
     def __init__(self, list pinList = [17, 5, 16, 27, 6, 20, 22, 13, 21]):
         cdef list achsList = [0, 1, 2] # die Zahlen sollen die Achse repräsentieren 0 = X / 1 = Y / 2 = Z 
         self.pinList = pinList   
@@ -93,9 +93,10 @@ class MotorSteuerung:
         lck.release()
         return posInt
 
+    #TODO:FIX rework endpose handling
     @staticmethod
     def Checkpos(int achse, int direction, int pulse, int endMax, int endMin):
-        #TODO:FIX rework endpose handling
+        
         cdef int achsPos = MotorSteuerung.GetPosition(achse)
     
         try:

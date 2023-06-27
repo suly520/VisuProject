@@ -10,12 +10,12 @@ from PySide2 import QtCore, QtGui, QtOpenGL
 
 from Tools import MotorSteuerung, ObjLoader, vNeu
 
-
+# TODO:BEAUTY splitt class
+# TODO:FIX use different velocity support
 class GLWidget(QtOpenGL.QGLWidget):
     """Widget class containing all tools for handling servo motors and exchanging data between
       GLWidget and MainWindow
       """
-    #TODO:BEAUTY splitt class
     updateProgress = QtCore.Signal(int)
     updateLCD = QtCore.Signal(list)
     updateMotorStatus = QtCore.Signal(list)
@@ -36,7 +36,6 @@ class GLWidget(QtOpenGL.QGLWidget):
         self.direction_vec = [0, 0, 0]
         self.freq_vec = [0, 0, 0]
 
-        #TODO:FIX use different velocity support
         self.v_vec = [0.0007, 0.0007, 0.0007]
         self.max_freq_vec = [1000, 1000, 1000]
         self.min_freq_vec = [0, 0, 0]
@@ -256,9 +255,10 @@ class GLWidget(QtOpenGL.QGLWidget):
                                img_data)
         return texture
 
+    # TODO:FIX change the scaling methode for using blender obj file
     def change_unit(self, axis, inp, to_frequency=False):
         """scales the input to the desired min max value"""
-        #TODO:FIX change the scaling methode for using blender obj file
+
         if not to_frequency:
             outp = inp * \
                 self.max_visu_area_vec[axis] / self.max_freq_vec[axis]
@@ -269,7 +269,7 @@ class GLWidget(QtOpenGL.QGLWidget):
 
     def steering(self):
         """forwards/emits the motion signals to/to the motor module"""
-        #TODO:BEAUTY use overloading or a seperate function to allow visual only for
+        # TODO:BEAUTY use overloading or a seperate function to allow visual only for
         #            better readability and avoiding the multiple branches
         if not self.cycle_stop and not self.is_set and \
                 (self.calibration_active or self.contouring_active):
@@ -342,10 +342,10 @@ class GLWidget(QtOpenGL.QGLWidget):
                     self.next_step_ready = True
             self.update_stats_on_main_win()
 
+    # TODO:BEAUTY split in sections for different mods
+    # TODO:FEATURE add a interpolation functionality
     def set_auto_pos(self):
         """is for automated steering while contouring or calibrating"""
-        #TODO:BEAUTY split in sections for different mods
-        #TODO:FEATURE add a interpolation funktionality
         step_vec = [[0, 0, 0], [4, 4, 1.7], [0, 0, 0],
                     [4, 4, 0], [0, 0, 1.7], [4, 4, 0],
                     [0, 0, 0], [4, 0, 1.7], [0, 4, 0],
@@ -408,7 +408,7 @@ class GLWidget(QtOpenGL.QGLWidget):
 
     def stepper(self, axis, actual, desired, distance, vel):
         """steps and commands for the steppermotor"""
-         #TODO:BEAUTY change to only returnig function
+        # TODO:BEAUTY change to only returnig function
         if not self.cycle_stop:
             if distance > 0 and not self.cycle_stop:
                 actual += vel
@@ -469,9 +469,9 @@ class GLWidget(QtOpenGL.QGLWidget):
                                   100 / abs(self.overall_distance_z))
             self.updateProgress.emit(int(ceil(self.progress_z)))
 
+    # TODO:FIX better control over 3d view
     def mouseMoveEvent(self, event: QtGui.QMouseEvent):
         """describes the mouse behaviour in the 3D visualisation mainly for rotate or tranlation"""
-        #TODO:FIX better control over 3d view
         mouse_pos_x = 0
         mouse_pos_y = 0
         old_pos = []
@@ -544,8 +544,8 @@ class GLWidget(QtOpenGL.QGLWidget):
             self.right_button = False
         return super().mousePressEvent(event)
 
-    """def mouseDoubleClickEvent(self, event: QtGui.QMouseEvent):
-    #   "should translate the view in a specific range"
+    def mouseDoubleClickEvent(self, event: QtGui.QMouseEvent): ...
+    #   """should translate the view in a specific range"""
     #   if event.button() == QtCore.Qt.MouseButton.RightButton:
     #     if self.double_click_count < 5:
     #       self.trans_view_z = 1.5
@@ -792,10 +792,10 @@ class GLWidget(QtOpenGL.QGLWidget):
         self.actual_pos_z = 0
         self.updateSpinnerVal.emit()
 
+    # TODO:FIX Make the contouring more efficent
     @QtCore.Slot(bool)
     def select_contour_1(self):
         """selects a file for the contoutring function"""
-        #TODO:FIX Make the contouring more efficent
         self.contouring_file = "./ObjFiles/HTL.obj"
         print("[info]Contouring file: ", self.contouring_file)
 

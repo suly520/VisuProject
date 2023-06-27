@@ -16,11 +16,12 @@ class EmittingStream(QtCore.QObject):
         """writes every print() to the QLTextEditor"""
         self.textWritten.emit(str(text))
 
+# TODO:BEAUTY splitt class
+
 
 class MainWindow(QtWidgets.QMainWindow):
     """handles the QT Widgets and all UI relatet operations"""
-    #TODO:BEAUTY splitt class
-    
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self._init_labels()
