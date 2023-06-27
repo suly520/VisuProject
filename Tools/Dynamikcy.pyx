@@ -2,6 +2,8 @@ from math import tan, atan
 
 
 cpdef tuple vNeu(WegX, WegY, WegZ, vmax):
+        #TODO:FIX add real velocity capabilities
+        #TODO:BEAUTY clean code
         vX = 0
         vY = 0
         vZ = 0
@@ -88,8 +90,7 @@ cpdef tuple vNeu(WegX, WegY, WegZ, vmax):
         return round(vX,6), round(vY,6), round(vZ,6), MotorX, MotorY, MotorZ
 
 cpdef double motor(double ist, double v, int soll, int ziel, bint ZyklStop, int Dir):
-
-    
+        #TODO:BEAUTY clean code
         if not ZyklStop:
             if Dir == 0 and not ZyklStop:
                 ist = ist + v

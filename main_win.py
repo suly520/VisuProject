@@ -19,202 +19,228 @@ class EmittingStream(QtCore.QObject):
 
 class MainWindow(QtWidgets.QMainWindow):
     """handles the QT Widgets and all UI relatet operations"""
+    #TODO:BEAUTY splitt class
+    
     def __init__(self, parent=None):
-        super(MainWindow, self).__init__(parent)
-        self.ui = Ui_VisoWidget()
-        self.docked = QtWidgets.QDockWidget("Dock", self)
-        self.docked.setWidget(self.ui.setupUi(self.docked))
-        self.number: str
-        self.num: Ui_Numpad
-        self.numdocked: QtWidgets.QDockWidget
-        self.visuStattxt: str
-        self.oldStatus: str
-        self.numb = False
+        super().__init__(parent)
+        self._init_labels()
+        self.visu_ui = Ui_VisoWidget()
+        self.docker_widget = QtWidgets.QDockWidget("Dock", self)
+        self.docker_widget.setWidget(self.visu_ui.setupUi(self.docker_widget))
+        self.num_buffer: str
+        self.numpad_ui: Ui_Numpad
+        self.num_dock_widget: QtWidgets.QDockWidget
+        self.process_status_txt: str
+        self.process_status_txt_old: str
         self.format = QtGui.QTextCharFormat()
-        
-        self.visuStattxt = ''
-        self.oldStatus = 'NOP'
-        self.progressBar = QtWidgets.QProgressBar()
-        self.lcdX = QtWidgets.QLCDNumber()
-        self.lcdY = QtWidgets.QLCDNumber()
-        self.lcdZ = QtWidgets.QLCDNumber()
-        self.xAktiv = QtWidgets.QLabel()
-        self.yAktiv = QtWidgets.QLabel()
-        self.zAktiv = QtWidgets.QLabel()
-        self.prozessStatus = QtWidgets.QLabel()
-        self.xIST = QtWidgets.QLabel()
-        self.yIST = QtWidgets.QLabel()
-        self.zIST = QtWidgets.QLabel()
-        self.start = QtWidgets.QLabel()
-        self.stop = QtWidgets.QLabel()
+        self.process_status_txt = ''
+        self.process_status_txt_old = 'NOP'
+        self.progress_bar = QtWidgets.QProgressBar()
 
-        self.start.setText(" Start: INAKTIV ")
-        self.stop.setText(" Stop: INAKTIV ")
-        self.xAktiv.setText(" MotorX: INAKTIV ")
-        self.yAktiv.setText(" MotorY: INAKTIV ")
-        self.zAktiv.setText(" MotorZ: INAKTIV ")
-        self.prozessStatus.setText("  NOP  ")
-        self.xAktiv.setStyleSheet("background-color: lightgreen")
-        self.yAktiv.setStyleSheet("background-color: lightgreen")
-        self.zAktiv.setStyleSheet("background-color: lightgreen")
-        self.prozessStatus.setStyleSheet("background-color: lightgray")
-        self.start.setStyleSheet("background-color: lightgray")
-        self.stop.setStyleSheet("background-color: lightgreen")
-        self.xIST.setText("X_IST: ")
-        self.yIST.setText("  Y_IST: ")
-        self.zIST.setText("  Z_IST: ")
+        self.conturing_menu = QtWidgets.QMenu("Konturen", self)
+        self.shape_1 = QtWidgets.QAction("Kontur1", self)
+        self.shape_2 = QtWidgets.QAction("Kontur2", self)
+        self.shape_3 = QtWidgets.QAction("Kontur3", self)
+        self.conturing_menu.addAction(self.shape_1)
+        self.conturing_menu.addAction(self.shape_2)
+        self.conturing_menu.addAction(self.shape_3)
 
-        self.abstand = []
-        for i in range(5):
-            self.abstand.append(QtWidgets.QLabel())
-            self.abstand[i].setText("    ")
-
-
-        self.menu = QtWidgets.QMenu("Konturen", self)
-        self.Kontur1 = QtWidgets.QAction("Kontur1", self)
-        self.Kontur2 = QtWidgets.QAction("Kontur2", self)
-        self.Kontur3 = QtWidgets.QAction("Kontur3", self)
-        self.menu.addAction(self.Kontur1)
-        self.menu.addAction(self.Kontur2)
-        self.menu.addAction(self.Kontur3)
-
-
-        self.glWidget = GLWidget()
+        self.gl_widget = GLWidget()
         central_widget = QtWidgets.QWidget()
         self.setCentralWidget(central_widget)
-        self.glWidgetArea = QtWidgets.QScrollArea()
-        self.glWidgetArea.setWidget(self.glWidget)
-        self.glWidgetArea.setWidgetResizable(True)
-        self.glWidgetArea.setHorizontalScrollBarPolicy(
+        self.gl_widget_area = QtWidgets.QScrollArea()
+        self.gl_widget_area.setWidget(self.gl_widget)
+        self.gl_widget_area.setWidgetResizable(True)
+        self.gl_widget_area.setHorizontalScrollBarPolicy(
             QtCore.Qt.ScrollBarAlwaysOff)
-        self.glWidgetArea.setVerticalScrollBarPolicy(
+        self.gl_widget_area.setVerticalScrollBarPolicy(
             QtCore.Qt.ScrollBarAlwaysOff)
-        self.glWidgetArea.setSizePolicy(QtWidgets.QSizePolicy.Ignored,
-                                        QtWidgets.QSizePolicy.Ignored)
-        self.glWidgetArea.setMinimumSize(50, 50)
+        self.gl_widget_area.setSizePolicy(QtWidgets.QSizePolicy.Ignored,
+                                          QtWidgets.QSizePolicy.Ignored)
+        self.gl_widget_area.setMinimumSize(50, 50)
         sys.stdout = EmittingStream()
         self.connect(sys.stdout, QtCore.SIGNAL(
-            'textWritten(QString)'), self.NormalOutputWritten)
+            'textWritten(QString)'), self.write_to_textedit)
 
         # set the layout
         central_layout = QtWidgets.QVBoxLayout()
-        central_layout.addWidget(self.glWidgetArea)
+        central_layout.addWidget(self.gl_widget_area)
         central_widget.setLayout(central_layout)
         self.setWindowTitle("Visualisierung")
         self.resize(1280, 720)
 
-        self.glWidget.updateProgress.connect(self.UpdateProgressBar)
-        self.glWidget.updateLCD.connect(self.UpdateLCD)
-        self.glWidget.updateMotorStatus.connect(self.UpdateMotor)
-        self.glWidget.updateStatus.connect(self.UpdateStatus)
-        self.glWidget.updateStartStop.connect(self.UpdateStartStop)
-        self.glWidget.updateSpinnerVal.connect(self.UpdateSpinerVal)
+        self.gl_widget.updateProgress.connect(self.update_progressbar)
+        self.gl_widget.updateLCD.connect(self.update_numpad_txt)
+        self.gl_widget.updateMotorStatus.connect(self.update_motor_status_txt)
+        self.gl_widget.updateStatus.connect(self.update_process_status_txt)
+        self.gl_widget.updateStartStop.connect(self.update_start_stop_txt)
+        self.gl_widget.updateSpinnerVal.connect(self.update_distance_input)
 
-        self.docked.setAllowedAreas(
+        self.docker_widget.setAllowedAreas(
             QtCore.Qt.BottomDockWidgetArea | QtCore.Qt.TopDockWidgetArea)
-        self.addDockWidget(QtCore.Qt.BottomDockWidgetArea, self.docked)
+        self.addDockWidget(QtCore.Qt.BottomDockWidgetArea, self.docker_widget)
 
-        self.status = self.statusBar()
-        self.status.addPermanentWidget(self.stop)
-        self.status.addPermanentWidget(self.abstand[4])
-        self.status.addPermanentWidget(self.start)
-        self.status.addPermanentWidget(self.abstand[3])
-        self.status.addPermanentWidget(self.prozessStatus)
-        self.status.addPermanentWidget(self.abstand[2])
-        self.status.addPermanentWidget(self.xAktiv)
-        self.status.addPermanentWidget(self.yAktiv)
-        self.status.addPermanentWidget(self.zAktiv)
-        self.status.addPermanentWidget(self.abstand[1])
-        self.status.addPermanentWidget(self.xIST)
-        self.status.addPermanentWidget(self.lcdX)
-        self.status.addPermanentWidget(self.yIST)
-        self.status.addPermanentWidget(self.lcdY)
-        self.status.addPermanentWidget(self.zIST)
-        self.status.addPermanentWidget(self.lcdZ)
-        self.status.addPermanentWidget(self.abstand[0])
-        self.status.addPermanentWidget(self.progressBar)
+        self._init_statusbar()
 
-        self.ui.xStartSpinBox.valueChanged.connect(self.glWidget.move_to_x)
-        self.ui.xStartSpinBox.setRange(
-            self.glWidget.min_freq_vec[0], self.glWidget.max_freq_vec[0])
-        self.ui.xStartSpinBox.setSingleStep(100)
-        self.ui.xStartSpinBox.setValue(MotorSteuerung.GetPosition(0))
-
-        self.ui.yStartSpinBox.valueChanged.connect(self.glWidget.move_to_y)
-        self.ui.yStartSpinBox.setRange(
-            self.glWidget.min_freq_vec[1], self.glWidget.max_freq_vec[1])
-        self.ui.yStartSpinBox.setSingleStep(100)
-        self.ui.yStartSpinBox.setValue(MotorSteuerung.GetPosition(1))
-
-        self.ui.zStartSpinBox.valueChanged.connect(self.glWidget.move_to_z)
-        self.ui.zStartSpinBox.setRange(
-            self.glWidget.min_freq_vec[2], self.glWidget.max_freq_vec[2])
-        self.ui.zStartSpinBox.setSingleStep(100)
-        self.ui.zStartSpinBox.setValue(MotorSteuerung.GetPosition(2))
-
-        self.lcdX.display(MotorSteuerung.GetPosition(0))
-        self.lcdY.display(MotorSteuerung.GetPosition(1))
-        self.lcdZ.display(MotorSteuerung.GetPosition(2))
-
-        self.ui.vSpinBox.valueChanged.connect(self.glWidget.set_velocity)
-        self.ui.vSpinBox.setValue(0.008)
-
-        self.ui.startButton.clicked.connect(self.glWidget.start_procedure)
-        self.ui.stopButton.clicked.connect(self.glWidget.pause_procedure)
-        self.ui.hardstopButton.clicked.connect(self.glWidget.stop_procedure)
-        self.ui.kalButton.clicked.connect(self.glWidget.calibration_switch)
-        self.ui.resetVis.clicked.connect(self.glWidget.reset_view)
-        self.ui.onlyVisual.clicked.connect(self.glWidget.visu_only_switch)
-        self.ui.clearPos.clicked.connect(self.glWidget.clear_pos)
-        self.ui.Bahn.clicked.connect(self.glWidget.conturing_switch)
-        self.ui.numBut.clicked.connect(self.InitNum)
-
-        self.ui.toolButton.setMenu(self.menu)
-        self.ui.toolButton.clicked.connect(self.ui.toolButton.showMenu)
-        self.Kontur1.triggered.connect(self.glWidget.select_contour_1)
-        self.Kontur2.triggered.connect(self.glWidget.select_contour_2)
-        self.Kontur3.triggered.connect(self.glWidget.select_contour_3)
-
-        
-
-    def InitNum(self):
-        self.numb = True
-        self.number = ""
-        self.num = Ui_Numpad()
-        self.numdocked = QtWidgets.QDockWidget("NumDock", self)
-        self.numdocked.setWidget(self.num.setupUi(self.numdocked))
-        # self.numdocked.maximumSize()
-        self.numdocked.setAllowedAreas(
-            QtCore.Qt.LeftDockWidgetArea | QtCore.Qt.RightDockWidgetArea)
-        self.setCorner(QtCore.Qt.Corner.BottomLeftCorner,
-                       QtCore.Qt.BottomDockWidgetArea)
-        self.addDockWidget(QtCore.Qt.RightDockWidgetArea, self.numdocked)
-
-        self.num.zero.clicked.connect(lambda x: self.EmitNumKey(str(0)))
-        self.num.eins.clicked.connect(lambda x: self.EmitNumKey(str(1)))
-        self.num.zwei.clicked.connect(lambda x: self.EmitNumKey(str(2)))
-        self.num.drei.clicked.connect(lambda x: self.EmitNumKey(str(3)))
-        self.num.vier.clicked.connect(lambda x: self.EmitNumKey(str(4)))
-        self.num.funf.clicked.connect(lambda x: self.EmitNumKey(str(5)))
-        self.num.sechs.clicked.connect(lambda x: self.EmitNumKey(str(6)))
-        self.num.sieben.clicked.connect(lambda x: self.EmitNumKey(str(7)))
-        self.num.acht.clicked.connect(lambda x: self.EmitNumKey(str(8)))
-        self.num.neun.clicked.connect(lambda x: self.EmitNumKey(str(9)))
-        self.num.xforSpin.clicked.connect(lambda x: self.EmitNumKey("X"))
-        self.num.yforSpin.clicked.connect(lambda x: self.EmitNumKey("Y"))
-        self.num.zforSpin.clicked.connect(lambda x: self.EmitNumKey("Z"))
-        self.num.delte.clicked.connect(lambda x: self.EmitNumKey("delete"))
-        self.num.enter.clicked.connect(lambda x: self.EmitNumKey("enter"))
-        self.num.geschw.clicked.connect(lambda x: self.EmitNumKey("v"))
+        self._setup_visu_ui()
 
     def __del__(self):
         # Restore sys.stdout
         sys.stdout = sys.__stdout__
 
+    def _init_labels(self):
+        """inits all labels assosiated with the user interface"""
+        self.process_status_label = QtWidgets.QLabel()
+        self.process_status_label.setText("  NOP  ")
+        self.process_status_label.setStyleSheet("background-color: lightgray")
+
+        self.start_label = QtWidgets.QLabel()
+        self.start_label.setText(" Start: INAKTIV ")
+        self.start_label.setStyleSheet("background-color: lightgray")
+
+        self.stop_label = QtWidgets.QLabel()
+        self.stop_label.setText(" Stop: INAKTIV ")
+        self.stop_label.setStyleSheet("background-color: lightgreen")
+
+        self.num_input_x = QtWidgets.QLCDNumber()
+        self.num_input_y = QtWidgets.QLCDNumber()
+        self.num_input_z = QtWidgets.QLCDNumber()
+
+        self.x_activ = QtWidgets.QLabel()
+        self.x_activ.setText(" MotorX: INAKTIV ")
+        self.x_activ.setStyleSheet("background-color: lightgreen")
+        self.y_activ = QtWidgets.QLabel()
+        self.y_activ.setText(" MotorY: INAKTIV ")
+        self.y_activ.setStyleSheet("background-color: lightgreen")
+        self.z_activ = QtWidgets.QLabel()
+        self.z_activ.setText(" MotorZ: INAKTIV ")
+        self.z_activ.setStyleSheet("background-color: lightgreen")
+
+        self.actual_pos_x_label = QtWidgets.QLabel()
+        self.actual_pos_x_label.setText("X_IST: ")
+
+        self.actual_pos_y_label = QtWidgets.QLabel()
+        self.actual_pos_y_label.setText("  Y_IST: ")
+
+        self.actual_pos_z_label = QtWidgets.QLabel()
+        self.actual_pos_z_label.setText("  Z_IST: ")
+
+        self.distance_labels = []
+        for i in range(5):
+            self.distance_labels.append(QtWidgets.QLabel())
+            self.distance_labels[i].setText("    ")
+
+    def _init_statusbar(self):
+        """assigns all widgets to the statusbar"""
+        self.status = self.statusBar()
+        self.status.addPermanentWidget(self.stop_label)
+        self.status.addPermanentWidget(self.distance_labels[4])
+        self.status.addPermanentWidget(self.start_label)
+        self.status.addPermanentWidget(self.distance_labels[3])
+        self.status.addPermanentWidget(self.process_status_label)
+        self.status.addPermanentWidget(self.distance_labels[2])
+        self.status.addPermanentWidget(self.x_activ)
+        self.status.addPermanentWidget(self.y_activ)
+        self.status.addPermanentWidget(self.z_activ)
+        self.status.addPermanentWidget(self.distance_labels[1])
+        self.status.addPermanentWidget(self.actual_pos_x_label)
+        self.status.addPermanentWidget(self.num_input_x)
+        self.status.addPermanentWidget(self.actual_pos_y_label)
+        self.status.addPermanentWidget(self.num_input_y)
+        self.status.addPermanentWidget(self.actual_pos_z_label)
+        self.status.addPermanentWidget(self.num_input_z)
+        self.status.addPermanentWidget(self.distance_labels[0])
+        self.status.addPermanentWidget(self.progress_bar)
+
+    def _init_numpad_widget(self):
+        """inits all numpad related variables """
+        self.num_buffer = ""
+        self.numpad_ui = Ui_Numpad()
+        self.num_dock_widget = QtWidgets.QDockWidget("NumDock", self)
+        self.num_dock_widget.setWidget(
+            self.numpad_ui.setupUi(self.num_dock_widget))
+        # self.num_dock_widget.maximumSize()
+        self.num_dock_widget.setAllowedAreas(
+            QtCore.Qt.LeftDockWidgetArea | QtCore.Qt.RightDockWidgetArea)
+        self.setCorner(QtCore.Qt.Corner.BottomLeftCorner,
+                       QtCore.Qt.BottomDockWidgetArea)
+        self.addDockWidget(QtCore.Qt.RightDockWidgetArea, self.num_dock_widget)
+
+        self.numpad_ui.zero.clicked.connect(lambda x: self.emit_num(str(0)))
+        self.numpad_ui.eins.clicked.connect(lambda x: self.emit_num(str(1)))
+        self.numpad_ui.zwei.clicked.connect(lambda x: self.emit_num(str(2)))
+        self.numpad_ui.drei.clicked.connect(lambda x: self.emit_num(str(3)))
+        self.numpad_ui.vier.clicked.connect(lambda x: self.emit_num(str(4)))
+        self.numpad_ui.funf.clicked.connect(lambda x: self.emit_num(str(5)))
+        self.numpad_ui.sechs.clicked.connect(lambda x: self.emit_num(str(6)))
+        self.numpad_ui.sieben.clicked.connect(
+            lambda x: self.emit_num(str(7)))
+        self.numpad_ui.acht.clicked.connect(lambda x: self.emit_num(str(8)))
+        self.numpad_ui.neun.clicked.connect(lambda x: self.emit_num(str(9)))
+        self.numpad_ui.xforSpin.clicked.connect(lambda x: self.emit_num("X"))
+        self.numpad_ui.yforSpin.clicked.connect(lambda x: self.emit_num("Y"))
+        self.numpad_ui.zforSpin.clicked.connect(lambda x: self.emit_num("Z"))
+        self.numpad_ui.delte.clicked.connect(
+            lambda x: self.emit_num("delete"))
+        self.numpad_ui.enter.clicked.connect(
+            lambda x: self.emit_num("enter"))
+        self.numpad_ui.geschw.clicked.connect(lambda x: self.emit_num("v"))
+        print(self.num_buffer)
+
+    def _setup_visu_ui(self):
+        self.visu_ui.xStartSpinBox.valueChanged.connect(
+            self.gl_widget.move_to_x)
+        self.visu_ui.xStartSpinBox.setRange(
+            self.gl_widget.min_freq_vec[0], self.gl_widget.max_freq_vec[0])
+        self.visu_ui.xStartSpinBox.setSingleStep(100)
+        self.visu_ui.xStartSpinBox.setValue(MotorSteuerung.GetPosition(0))
+
+        self.visu_ui.yStartSpinBox.valueChanged.connect(
+            self.gl_widget.move_to_y)
+        self.visu_ui.yStartSpinBox.setRange(
+            self.gl_widget.min_freq_vec[1], self.gl_widget.max_freq_vec[1])
+        self.visu_ui.yStartSpinBox.setSingleStep(100)
+        self.visu_ui.yStartSpinBox.setValue(MotorSteuerung.GetPosition(1))
+
+        self.visu_ui.zStartSpinBox.valueChanged.connect(
+            self.gl_widget.move_to_z)
+        self.visu_ui.zStartSpinBox.setRange(
+            self.gl_widget.min_freq_vec[2], self.gl_widget.max_freq_vec[2])
+        self.visu_ui.zStartSpinBox.setSingleStep(100)
+        self.visu_ui.zStartSpinBox.setValue(MotorSteuerung.GetPosition(2))
+
+        self.num_input_x.display(MotorSteuerung.GetPosition(0))
+        self.num_input_y.display(MotorSteuerung.GetPosition(1))
+        self.num_input_z.display(MotorSteuerung.GetPosition(2))
+
+        self.visu_ui.vSpinBox.valueChanged.connect(self.gl_widget.set_velocity)
+        self.visu_ui.vSpinBox.setValue(0.008)
+
+        self.visu_ui.startButton.clicked.connect(
+            self.gl_widget.start_procedure)
+        self.visu_ui.stopButton.clicked.connect(self.gl_widget.pause_procedure)
+        self.visu_ui.hardstopButton.clicked.connect(
+            self.gl_widget.stop_procedure)
+        self.visu_ui.kalButton.clicked.connect(
+            self.gl_widget.calibration_switch)
+        self.visu_ui.resetVis.clicked.connect(self.gl_widget.reset_view)
+        self.visu_ui.onlyVisual.clicked.connect(
+            self.gl_widget.visu_only_switch)
+        self.visu_ui.clearPos.clicked.connect(self.gl_widget.clear_pos)
+        self.visu_ui.Bahn.clicked.connect(self.gl_widget.conturing_switch)
+        self.visu_ui.numBut.clicked.connect(self._init_numpad_widget)
+
+        self.visu_ui.toolButton.setMenu(self.conturing_menu)
+        self.visu_ui.toolButton.clicked.connect(
+            self.visu_ui.toolButton.showMenu)
+        self.shape_1.triggered.connect(self.gl_widget.select_contour_1)
+        self.shape_2.triggered.connect(self.gl_widget.select_contour_2)
+        self.shape_3.triggered.connect(self.gl_widget.select_contour_3)
+
     @QtCore.Slot(str)
-    def NormalOutputWritten(self, text:str):
+    def write_to_textedit(self, text: str):
         """Append text to the QTextEdit."""
-        cursor = self.ui.TextEdit.textCursor()
+        cursor = self.visu_ui.TextEdit.textCursor()
         cursor.movePosition(QtGui.QTextCursor.End)
         if text.startswith("[bold]"):
             self.format.setFontWeight(QtGui.QFont.Bold)
@@ -225,127 +251,128 @@ class MainWindow(QtWidgets.QMainWindow):
             cursor.mergeCharFormat(self.format)
 
         cursor.insertText(text)
-        self.ui.TextEdit.setTextCursor(cursor)
-        self.ui.TextEdit.ensureCursorVisible()
+        self.visu_ui.TextEdit.setTextCursor(cursor)
+        self.visu_ui.TextEdit.ensureCursorVisible()
 
     @QtCore.Slot(int)
-    def UpdateProgressBar(self, val):
-        self.progressBar.setValue(val)
+    def update_progressbar(self, val):
+        """updates progressbar with the current progress data"""
+        self.progress_bar.setValue(val)
 
     @QtCore.Slot(list)
-    def UpdateLCD(self, positons):
-        self.lcdX.display(positons[0])
-        self.lcdY.display(positons[1])
-        self.lcdZ.display(positons[2])
+    def update_numpad_txt(self, positons):
+        """updates the emited input from the numpad"""
+        self.num_input_x.display(positons[0])
+        self.num_input_y.display(positons[1])
+        self.num_input_z.display(positons[2])
 
     @QtCore.Slot(list)
-    def UpdateMotor(self, motorStats):
-        if not motorStats[0] and motorStats[3]:
-            self.xAktiv.setText(" MotorX: AKTIV   ")
-            self.xAktiv.setStyleSheet("background-color: red")
+    def update_motor_status_txt(self, motor_status):
+        """sets and updates the status text of the motors"""
+        if not motor_status[0] and motor_status[3]:
+            self.x_activ.setText(" MotorX: AKTIV   ")
+            self.x_activ.setStyleSheet("background-color: red")
         else:
-            self.xAktiv.setText(" MotorX: INAKTIV ")
-            self.xAktiv.setStyleSheet("background-color: lightgreen")
+            self.x_activ.setText(" MotorX: INAKTIV ")
+            self.x_activ.setStyleSheet("background-color: lightgreen")
 
-        if not motorStats[1] and motorStats[3]:
-            self.yAktiv.setText(" MotorY: AKTIV   ")
-            self.yAktiv.setStyleSheet("background-color: red")
+        if not motor_status[1] and motor_status[3]:
+            self.y_activ.setText(" MotorY: AKTIV   ")
+            self.y_activ.setStyleSheet("background-color: red")
         else:
-            self.yAktiv.setText(" MotorY: INAKTIV ")
-            self.yAktiv.setStyleSheet("background-color: lightgreen")
+            self.y_activ.setText(" MotorY: INAKTIV ")
+            self.y_activ.setStyleSheet("background-color: lightgreen")
 
-        if not motorStats[2] and motorStats[3]:
-            self.zAktiv.setText(" MotorZ: AKTIV   ")
-            self.zAktiv.setStyleSheet("background-color: red")
+        if not motor_status[2] and motor_status[3]:
+            self.z_activ.setText(" MotorZ: AKTIV   ")
+            self.z_activ.setStyleSheet("background-color: red")
         else:
-            self.zAktiv.setText(" MotorZ: INAKTIV ")
-            self.zAktiv.setStyleSheet("background-color: lightgreen")
+            self.z_activ.setText(" MotorZ: INAKTIV ")
+            self.z_activ.setStyleSheet("background-color: lightgreen")
 
     @QtCore.Slot(str)
-    def UpdateStatus(self, status):
+    def update_process_status_txt(self, status):
+        """updates all the process relevant signaltext onm the statusbar"""
         if status == "visu_only_activ":
-            self.visuStattxt = "onlyVisual"
-            status = self.oldStatus
+            self.process_status_txt = "onlyVisual"
+            status = self.process_status_txt_old
         elif status == "visu_only_inactiv":
-            self.visuStattxt = ""
-            status = self.oldStatus
+            self.process_status_txt = ""
+            status = self.process_status_txt_old
 
         if status == 'NOP':
-            self.oldStatus = status
-            self.prozessStatus.setText(f" {self.visuStattxt} NOP  ")
-            self.prozessStatus.setStyleSheet("background-color: lightgray")
+            self.process_status_txt_old = status
+            self.process_status_label.setText(
+                f" {self.process_status_txt} NOP  ")
+            self.process_status_label.setStyleSheet(
+                "background-color: lightgray")
         elif status == "kal":
-            self.oldStatus = status
-            self.prozessStatus.setText(
-                f" {self.visuStattxt} Kalibration AKTIV ")
-            self.prozessStatus.setStyleSheet("background-color: yellow")
+            self.process_status_txt_old = status
+            self.process_status_label.setText(
+                f" {self.process_status_txt} Kalibration AKTIV ")
+            self.process_status_label.setStyleSheet("background-color: yellow")
         elif status == "kon":
-            self.oldStatus = status
-            self.prozessStatus.setText(f" {self.visuStattxt} Konturing AKTIV ")
-            self.prozessStatus.setStyleSheet("background-color: yellow")
+            self.process_status_txt_old = status
+            self.process_status_label.setText(
+                f" {self.process_status_txt} Konturing AKTIV ")
+            self.process_status_label.setStyleSheet("background-color: yellow")
         elif status == "Error":
-            self.oldStatus = status
-            self.prozessStatus.setText(f" {self.visuStattxt} Error ")
-            self.prozessStatus.setStyleSheet("background-color: red")
+            self.process_status_txt_old = status
+            self.process_status_label.setText(
+                f" {self.process_status_txt} Error ")
+            self.process_status_label.setStyleSheet("background-color: red")
 
     @QtCore.Slot(list)
-    def UpdateStartStop(self, status):
-        start, stop = status
-        if start:
-            self.start.setText(" Start: AKTIV   ")
-            self.start.setStyleSheet("background-color: yellow")
+    def update_start_stop_txt(self, status):
+        """updates the start stop status text and color in the progressbar"""
+        start_label, stop_label = status
+        if start_label:
+            self.start_label.setText(" Start: AKTIV   ")
+            self.start_label.setStyleSheet("background-color: yellow")
         else:
-            self.start.setText(" Start: INAKTIV   ")
-            self.start.setStyleSheet("background-color: lightgray")
+            self.start_label.setText(" Start: INAKTIV   ")
+            self.start_label.setStyleSheet("background-color: lightgray")
 
-        if stop:
-            self.stop.setText(" Stop: AKTIV   ")
-            self.stop.setStyleSheet("background-color: red")
+        if stop_label:
+            self.stop_label.setText(" Stop: AKTIV   ")
+            self.stop_label.setStyleSheet("background-color: red")
         else:
-            self.stop.setText(" Stop: INAKTIV   ")
-            self.stop.setStyleSheet("background-color: lightgreen")
+            self.stop_label.setText(" Stop: INAKTIV   ")
+            self.stop_label.setStyleSheet("background-color: lightgreen")
 
     @QtCore.Slot()
-    def UpdateSpinerVal(self):
-        self.ui.xStartSpinBox.setValue(MotorSteuerung.GetPosition(0))
-        self.ui.yStartSpinBox.setValue(MotorSteuerung.GetPosition(1))
-        self.ui.zStartSpinBox.setValue(MotorSteuerung.GetPosition(2))
+    def update_distance_input(self):
+        """is needed for updating the distance input in the spinner boxes"""
+        self.visu_ui.xStartSpinBox.setValue(MotorSteuerung.GetPosition(0))
+        self.visu_ui.yStartSpinBox.setValue(MotorSteuerung.GetPosition(1))
+        self.visu_ui.zStartSpinBox.setValue(MotorSteuerung.GetPosition(2))
 
     @QtCore.Slot(str)
-    def EmitNumKey(self, num):
-        if num == "v":
-            self.number = num
-        elif num == "X":
-            self.number = num
-        elif num == "Y":
-            self.number = num
-        elif num == "Z":
-            self.number = num
-
-        if num == "enter":
-            if self.number[0] == "v":
-                self.ui.vSpinBox.setValue(float(self.number[2:]))
-            if self.number[0] == "X":
-                self.ui.xStartSpinBox.setValue(int(self.number[2:]))
-            if self.number[0] == "Y":
-                self.ui.yStartSpinBox.setValue(int(self.number[2:]))
-            if self.number[0] == "Z":
-                self.ui.zStartSpinBox.setValue(int(self.number[2:]))
+    def emit_num(self, num):
+        """handels the input from the numpad widget"""
+        spinner_box = {"v": self.visu_ui.vSpinBox, "X": self.visu_ui.xStartSpinBox,
+                       "Y": self.visu_ui.yStartSpinBox, "Z": self.visu_ui.zStartSpinBox}
+        if num in ("v", "X", "Y", "Z"):
+            self.num_buffer = num
+        if num == "enter" and len(self.num_buffer):
+            spinner_box[self.num_buffer[0]].setValue(
+                float(self.num_buffer[2:]))
+            self.num_buffer = self.num_buffer[:-1]
+        elif len(self.num_buffer) == 0:
+            self.numpad_ui.lcdNumbpad.display("notSeT")
+            print("WARNING! numbpad axis not set! please select an axis")
+            return
         else:
-            if len(self.number) != 0:
-                if self.number[0] == "X" or self.number[0] == "Y" or self.number[0] == "Z" or self.number[0] == "v":
-                    if self.number[0:4] != "vv0." and self.number[0] == "v":
-                        self.number = "vv0."
-                    if num == "delete":
-                        self.number = self.number[:-1]
-                    elif len(self.number) < 7:
-                        self.number += num
-                    self.num.lcdNumbpad.display(str(self.number[2:]))
-                    print(self.number)
-
-                else:
-                    self.num.lcdNumbpad.display("notSeT")
-                    print("Bitte eine Achse auswählen")
+            if all((not self.num_buffer.startswith("X"), not self.num_buffer.startswith("Y"),
+                    not self.num_buffer.startswith("Z"), not self.num_buffer.startswith("v"))):
+                return
+            if self.num_buffer[0:4] != "vv0." and self.num_buffer.startswith("v"):
+                self.num_buffer = "vv0."
+            if num == "delete":
+                self.num_buffer = self.num_buffer[:-1]
+            elif len(self.num_buffer) < 7:
+                self.num_buffer += num
+            self.numpad_ui.lcdNumbpad.display(str(self.num_buffer[2:]))
 
 
 if __name__ == '__main__':
@@ -353,5 +380,5 @@ if __name__ == '__main__':
     mainWin = MainWindow()
     mainWin.showMaximized()
     res = app.exec_()
-    mainWin.glWidget.free_recources()
+    mainWin.gl_widget.free_recources()
     sys.exit(res)
