@@ -166,3 +166,4 @@ cython_debug/
 Tools/X.txt
 Tools/Y.txt
 Tools/Z.txt
+test.py

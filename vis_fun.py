@@ -12,7 +12,10 @@ from Tools import MotorSteuerung, ObjLoader, vNeu
 
 
 class GLWidget(QtOpenGL.QGLWidget):
-    """Signale für das Verknüpfen zum MainWindow"""
+    """Widget class containing all tools for handling servo motors and exchanging data between
+      GLWidget and MainWindow
+      TODO: Make the OOP concept more clear > better structure and better encapsulation
+      """
     updateProgress = QtCore.Signal(int)
     updateLCD = QtCore.Signal(list)
     updateMotorStatus = QtCore.Signal(list)
@@ -21,8 +24,6 @@ class GLWidget(QtOpenGL.QGLWidget):
     updateSpinnerVal = QtCore.Signal()
 
     def __init__(self, parent=None):
-        """Objecte für das Handhaben der Servomotoren und den Austausch 
-        von Daten zwischen GLWidget und MainWindow"""
         super(GLWidget, self).__init__(parent)
         self.motor_steering = MotorSteuerung()
 
@@ -32,7 +33,6 @@ class GLWidget(QtOpenGL.QGLWidget):
         self.trans_view_z = 0
         self.double_click_count = 0
 
-        """Listen und Variablen mit informationen für Raspberry"""
         self.direction_vec = [0, 0, 0]
         self.freq_vec = [0, 0, 0]
         self.v_vec = [0.0007, 0.0007, 0.0007]
@@ -41,14 +41,12 @@ class GLWidget(QtOpenGL.QGLWidget):
         self.max_visu_area_vec = [4.5, 4.5, 1.75]
         self.min_visu_area_vec = [0, 0, 0]
 
-        '''Bedingungen für den Allgemeinen Ablauf'''
         self.cycle_start = False
         self.cycle_stop = False
         self.is_set = False
         self.visu_check_vec = [False, False, False]
         self.visu_check_x, self.visu_check_y, self.visu_check_z = self.visu_check_vec
 
-        """Positions-, Weg und Geschwindigkeitsvariablen für den Allgemeinen Ablauf"""
         self.freq_pos_list = (MotorSteuerung.GetPosition(
             0), MotorSteuerung.GetPosition(1), MotorSteuerung.GetPosition(2))
         self.actual_pos_x, self.actual_pos_y, self.actual_pos_z = [
@@ -59,7 +57,7 @@ class GLWidget(QtOpenGL.QGLWidget):
         self.distance_x = self.distance_y = self.distance_z = 0
         self.vmax = 0
 
-        """Für die GUI"""
+        """GUI"""
         self.progress_x = self.progress_y = self.progress_z = 0
         self.vert_arr_obj: OpenGL.GL.ArrayDatatype
         self.vert_buf_obj: OpenGL.GL.ArrayDatatype
@@ -82,7 +80,7 @@ class GLWidget(QtOpenGL.QGLWidget):
         self.rotation_matrix_x: pyrr.Matrix44
         self.generated_pos_vec: list
 
-        """Für definierte Funktionen der steering"""
+        """for steering"""
         self.calibration_active = False
         self.contouring_active = False
         self.auto_start = False
@@ -92,7 +90,6 @@ class GLWidget(QtOpenGL.QGLWidget):
         self.contouring_file = None
         self.visu_only_activ = False
 
-        """Alle 3D-Objekte, Matritzen, Files Für die 3D_Visualisierung"""
         self.projection_matrix = pyrr.matrix44.create_perspective_projection_matrix(
             45, 1280 / 720, 0.1, 100)
         self.view_matrix = pyrr.matrix44.create_look_at(pyrr.Vector3(
@@ -126,8 +123,7 @@ class GLWidget(QtOpenGL.QGLWidget):
         timer.start()
 
     def initializeGL(self):
-        """Hier wird alles (Vertecies, Buffer und WidgetDisplay) 
-        für das Zeichnen initialisiert(vorbereitet)"""
+        """initializes all vertecies, buffer and the WidgetDisplay"""
         OpenGL.GL.glEnable(OpenGL.GL.GL_DEPTH_TEST)
         textures = OpenGL.GL.glGenTextures(1)
         self.load_texture(self.texture_files, textures)
@@ -137,7 +133,7 @@ class GLWidget(QtOpenGL.QGLWidget):
         OpenGL.GL.glClearColor(0, 1, 2, 1)
 
     def paintGL(self):
-        """paintGL() zeichnet die Scene"""
+        """paintGL() draws the scene"""
         OpenGL.GL.glClear(OpenGL.GL.GL_COLOR_BUFFER_BIT |
                           OpenGL.GL.GL_DEPTH_BUFFER_BIT)
         self.translate_view()
@@ -149,8 +145,7 @@ class GLWidget(QtOpenGL.QGLWidget):
                 OpenGL.GL.GL_TRIANGLES, 0, len(self.obj_indices[i]))
 
     def resizeGL(self, width, height):
-        """Hier wird die Einstellung des Viewports (Modelansicht)
-        an die Größe des Fensters angepasst"""
+        """settings for the viewport"""
         OpenGL.GL.glViewport(0, 0, width, height)
         shader = self.create_shader()
         self.model_loc = OpenGL.GL.glGetUniformLocation(shader, "model")
@@ -163,44 +158,44 @@ class GLWidget(QtOpenGL.QGLWidget):
 
     @staticmethod
     def create_shader():
-        """Hier werden die Shaderprogramme erstellt und an die GPU als Schnittstelle gesendet"""
+        """sends the shader to the gpu and returns a shader object"""
         vertex_src = """
-    # version 300 es
-    layout(location = 0) in vec3 a_position;
-    layout(location = 1) in vec2 a_texture;
-    uniform mat4 model;
-    uniform mat4 projection;
-    uniform mat4 view;
-    out vec2 v_texture;
+            # version 300 es
+            layout(location = 0) in vec3 a_position;
+            layout(location = 1) in vec2 a_texture;
+            uniform mat4 model;
+            uniform mat4 projection;
+            uniform mat4 view;
+            out vec2 v_texture;
 
-    void main()
-    {
-      gl_Position = projection * view * model * vec4(a_position, 1.0); 
-      v_texture = a_texture;
-    }
-    """
+            void main()
+            {
+            gl_Position = projection * view * model * vec4(a_position, 1.0); 
+            v_texture = a_texture;
+            }
+            """
 
         fragment_src = """
-    # version 300 es
-    precision mediump float;
-    in vec2 v_texture;
-    out vec4 out_color;
-    uniform sampler2D s_texture;
+            # version 300 es
+            precision mediump float;
+            in vec2 v_texture;
+            out vec4 out_color;
+            uniform sampler2D s_texture;
 
-    void main()
-    {
-      out_color = texture(s_texture, v_texture);
-    }
-    """
+            void main()
+            {
+            out_color = texture(s_texture, v_texture);
+            }
+            """
         shader = compileProgram(
-                    compileShader(vertex_src, OpenGL.GL.GL_VERTEX_SHADER),
-                    compileShader(fragment_src, OpenGL.GL.GL_FRAGMENT_SHADER))
+            compileShader(vertex_src, OpenGL.GL.GL_VERTEX_SHADER),
+            compileShader(fragment_src, OpenGL.GL.GL_FRAGMENT_SHADER))
         OpenGL.GL.glUseProgram(shader)
         return shader
 
     @staticmethod
     def create_obj_properties(bufferlist):
-        """Hier werden die Vertex Array- und Vertex Buffer Objekte erstellt"""
+        """returns a tuple containing vertex array object and vertex buffer object"""
         vertex_array_object = OpenGL.GL.glGenVertexArrays(len(
             bufferlist))
         vertex_buffer_object = OpenGL.GL.glGenBuffers(len(bufferlist))
@@ -225,8 +220,8 @@ class GLWidget(QtOpenGL.QGLWidget):
         return vertex_array_object, vertex_buffer_object
 
     def load_objects(self):
-        """Hier werden die Objecte für die 3D-Visulation geladen und eine indeciesliste 
-        und Bufferliste erstellt"""
+        """creates a tuple containing a list of all object indecies and buffers 
+        from the self.obj_files list"""
         obj_indices = []
         obj_buffers = []
         for obj_file in self.obj_files:
@@ -239,7 +234,7 @@ class GLWidget(QtOpenGL.QGLWidget):
 
     @staticmethod
     def load_texture(path, texture):
-        """Hier werden die Texturen geladen und an das Object gebunden"""
+        """laods and assigns the texture return the texture"""
         OpenGL.GL.glBindTexture(OpenGL.GL.GL_TEXTURE_2D, texture)
         OpenGL.GL.glTexParameteri(OpenGL.GL.GL_TEXTURE_2D, OpenGL.GL.GL_TEXTURE_WRAP_S,
                                   OpenGL.GL.GL_REPEAT)
@@ -259,27 +254,27 @@ class GLWidget(QtOpenGL.QGLWidget):
                                img_data)
         return texture
 
-    def change_unit(self, achse, inp, to_frequency=False):
-        """Ist für das umwandeln von Pulsen in Visualisierungseinheit"""
+    def change_unit(self, axis, inp, to_frequency=False):
+        """scales the input to the desired min max value"""
         if not to_frequency:
             outp = inp * \
-                self.max_visu_area_vec[achse] / self.max_freq_vec[achse]
+                self.max_visu_area_vec[axis] / self.max_freq_vec[axis]
         if to_frequency:
-            outp = inp * self.max_freq_vec[achse] / \
-                self.max_visu_area_vec[achse]
+            outp = inp * self.max_freq_vec[axis] / \
+                self.max_visu_area_vec[axis]
         return outp
 
     def steering(self):
-        """Hier werden die Position gesetzt welche die Maschine anfahren und 
-        visualisiert werden soll"""
-
+        """forwards/emits the motion signals to/to the motor module
+            TODO: use overloading or a seperate function to allow visual only for
+                  better readability and avoiding the multiple branches"""
         if not self.cycle_stop and not self.is_set and \
-            (self.calibration_active or self.contouring_active):
+                (self.calibration_active or self.contouring_active):
             self.set_auto_pos()
             if self.current_step > self.old_step and self.auto_start:
                 self.old_step = self.current_step
                 if self.calibration_active and self.current_step > 0 or self.contouring_active and \
-                    self.current_step > 1:
+                        self.current_step > 1:
                     self.start_procedure()
 
         self.distance_x = self.visu_target_point_x - self.actual_pos_x
@@ -323,12 +318,10 @@ class GLWidget(QtOpenGL.QGLWidget):
                 self.overall_distance_z = self.distance_z
                 if not self.visu_only_activ:
                     self.motor_steering.Start(self.direction_vec, self.v_vec, self.freq_vec,
-                                    self.max_freq_vec, self.min_freq_vec, eng_settings[3:6])
+                                        self.max_freq_vec, self.min_freq_vec, eng_settings[3:6])
             if not self.visu_only_activ:
-                self.motor_check_x, self.motor_check_y, self.motor_check_z = \
-                                                        self.motor_steering.GetMotorStatus()
-                self.motor_check_list = (self.motor_check_x, self.motor_check_y,
-                                         self.motor_check_z, self.cycle_start)
+                self.motor_check_x, self.motor_check_y, self.motor_check_z, _= \
+                    self.motor_check_list = self.motor_steering.GetMotorStatus() + (self.cycle_start,)
             else:
                 self.visu_check_vec = (
                     self.visu_check_x, self.visu_check_y, self.visu_check_z)
@@ -345,7 +338,8 @@ class GLWidget(QtOpenGL.QGLWidget):
             self.update_stats_on_main_win()
 
     def set_auto_pos(self):
-        """is for automated steering while contouring or calibrating"""
+        """is for automated steering while contouring or calibrating
+        TODO: add a interpolation funktionality"""
         step_vec = [[0, 0, 0], [4, 4, 1.7], [0, 0, 0],
                     [4, 4, 0], [0, 0, 1.7], [4, 4, 0],
                     [0, 0, 0], [4, 0, 1.7], [0, 4, 0],
@@ -406,31 +400,35 @@ class GLWidget(QtOpenGL.QGLWidget):
                 self.move_to_y(target_points[1])
                 self.move_to_z(target_points[2])
 
-    def stepper(self, achse, ist, soll, weg, vel):
-        """steps and commands for the steppermotor"""
+    def stepper(self, axis, actual, desired, distance, vel):
+        """
+            steps and commands for the steppermotor
+            # TODO change to only returnig function
+        """
         if not self.cycle_stop:
-            if weg > 0 and not self.cycle_stop:
-                ist += vel
-                self.direction_vec[achse] = 0
+            if distance > 0 and not self.cycle_stop:
+                actual += vel
+                self.direction_vec[axis] = 0
 
-            elif weg < 0 and not self.cycle_stop:
-                ist -= vel
-                self.direction_vec[achse] = 1
+            elif distance < 0 and not self.cycle_stop:
+                actual -= vel
+                self.direction_vec[axis] = 1
 
-            if weg > 0 and ist >= soll or weg < 0 and ist <= soll or weg == 0:
-                ist = soll
+            if distance > 0 and actual >= desired or distance < 0 and \
+                    actual <= desired or distance == 0:
+                actual = desired
                 if self.visu_only_activ:
-                    if achse == 0:
+                    if axis == 0:
                         self.visu_check_x = True
-                    elif achse == 1:
+                    elif axis == 1:
                         self.visu_check_y = True
-                    elif achse == 2:
+                    elif axis == 2:
                         self.visu_check_z = True
             if self.visu_only_activ:
-                return ist
+                return actual
 
     def update_stats_on_main_win(self):
-        """updates stats of UI (progressbar, motorstatus, poscounter, startstop)"""
+        """updates status of UI (progressbar, motorstatus, poscounter, startstop)"""
         if not self.calibration_active or self.contouring_active:
             self.record_progress()
         else:
@@ -613,7 +611,7 @@ class GLWidget(QtOpenGL.QGLWidget):
         self.resizeGL(self.width(), self.height())
 
     def main_procedure(self):
-        """cals all the functions for the main procedure"""
+        """calls all the functions for the main procedure"""
         self.steering()
         self.translate_view()
         self.updateGL()
@@ -762,7 +760,7 @@ class GLWidget(QtOpenGL.QGLWidget):
     @QtCore.Slot(float)
     def visu_only_switch(self):
         """activates or deactivates the only visualisation function which
-           starts the process without emitting signals to the steering"""
+           starts the process without emiting signals to the steering"""
         if not self.visu_only_activ:
             self.visu_only_activ = True
             self.updateStatus.emit("visu_only_activ")
@@ -789,6 +787,7 @@ class GLWidget(QtOpenGL.QGLWidget):
         self.actual_pos_z = 0
         self.updateSpinnerVal.emit()
 
+    """TODO: Make the contouring more efficent"""
     @QtCore.Slot(bool)
     def select_contour_1(self):
         """selects a file for the contoutring function"""
