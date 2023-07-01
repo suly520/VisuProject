@@ -1,7 +1,7 @@
 from math import tan, atan
 
-#TODO:FIX add real velocity capabilities
-#TODO:BEAUTY clean code
+# TODO:FIX add real velocity capabilities
+# TODO:BEAUTY clean code
 cpdef tuple vNeu(WegX, WegY, WegZ, vmax):
         vX = 0
         vY = 0

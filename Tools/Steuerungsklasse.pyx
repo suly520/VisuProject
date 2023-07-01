@@ -23,8 +23,9 @@ class StopProcess(Exception):
     """Wird für das Stoppen der funktion benötigt"""
     pass
 
-#TODO:FEATURE add limitswitch capabilities
-#TODO:BEAUTY clean code
+# TODO:FEATURE add limitswitch capabilities
+# TODO:BEAUTY clean code
+# TODO: FEATURE use Matrix calclulations for steering
 class MotorSteuerung:
     """"""
     def __init__(self, list pinList = [17, 5, 16, 27, 6, 20, 22, 13, 21]):
